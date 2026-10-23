@@ -1,12 +1,13 @@
 {
-  "name": "Reduck: web page to webhook",
+  "name": "Reduck: run one of your scripts from a webhook",
   "nodes": [
     {
       "parameters": {
         "httpMethod": "POST",
         "path": "reduck-page",
         "responseMode": "responseNode",
-        "options": {}
+        "options": {},
+        "authentication": "headerAuth"
       },
       "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
@@ -24,7 +25,7 @@
         "script": {
           "__rl": true,
           "mode": "path",
-          "value": "example.com/get_prices"
+          "value": "example.com/export_orders"
         },
         "scriptArguments": "={{ JSON.stringify($json.body ?? {}) }}",
         "waitForCompletion": true,

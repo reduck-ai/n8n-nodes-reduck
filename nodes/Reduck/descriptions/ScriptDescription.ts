@@ -12,7 +12,7 @@ export const scriptOperations: INodeProperties[] = [
 				name: 'Get',
 				value: 'get',
 				description: 'Get a script, with its inputs and outputs',
-				action: 'Get a script',
+				action: 'Get script',
 			},
 			{
 				name: 'Get Many',
@@ -24,7 +24,7 @@ export const scriptOperations: INodeProperties[] = [
 				name: 'Run',
 				value: 'run',
 				description: 'Run a script in a browser and return its result',
-				action: 'Run a script',
+				action: 'Run script',
 			},
 		],
 		default: 'run',
@@ -54,8 +54,8 @@ export const scriptFields: INodeProperties[] = [
 				displayName: 'By Path',
 				name: 'path',
 				type: 'string',
-				placeholder: 'e.g. example.com/get_prices',
-				hint: 'Use "host/slug" for your own script, or "owner/host/slug" for a script shared with you',
+				placeholder: 'e.g. example.com/export_orders',
+				hint: 'Use "host/slug" for your own script, or "project/host/slug" for a script your team shares',
 				validation: [
 					{
 						type: 'regex',
@@ -87,6 +87,61 @@ export const scriptFields: INodeProperties[] = [
 			'Whether to wait for the run to finish and return its result. When off, the node returns the run ID right away; read it later with Run → Get.',
 	},
 	{
+		displayName: 'Browser',
+		name: 'browser',
+		type: 'options',
+		displayOptions: { show: { resource: ['script'], operation: ['run'] } },
+		options: [
+			{
+				name: 'Default',
+				value: 'default',
+				description: 'Let Reduck pick: your paired browser',
+			},
+			{
+				name: 'Hosted by Reduck',
+				value: 'managed',
+				description: 'A browser that Reduck runs in the cloud',
+			},
+			{
+				name: 'Local Device',
+				value: 'local',
+				description: 'A machine paired with "reduck local"',
+			},
+			{
+				name: 'Specific Device',
+				value: 'device',
+				description: 'One paired device, chosen by its ID',
+			},
+			{
+				name: 'Your Browser Extension',
+				value: 'extension',
+				description: 'Your Chrome, paired with the Reduck extension',
+			},
+		],
+		default: 'default',
+		description:
+			'Where the script runs. The hosted browser may need to be enabled on your Reduck plan.',
+	},
+	{
+		displayName: 'Country',
+		name: 'country',
+		type: 'string',
+		displayOptions: { show: { resource: ['script'], operation: ['run'], browser: ['managed'] } },
+		default: '',
+		placeholder: 'e.g. FR',
+		description:
+			'Two-letter country code, to see your site as visitors from that country do (language, prices, legal banners). Hosted browser only.',
+	},
+	{
+		displayName: 'Device ID',
+		name: 'deviceId',
+		type: 'string',
+		required: true,
+		displayOptions: { show: { resource: ['script'], operation: ['run'], browser: ['device'] } },
+		default: '',
+		description: 'ID of the paired device to run on, from your Reduck devices page',
+	},
+	{
 		displayName: 'Options',
 		name: 'options',
 		type: 'collection',
@@ -95,63 +150,12 @@ export const scriptFields: INodeProperties[] = [
 		displayOptions: { show: { resource: ['script'], operation: ['run'] } },
 		options: [
 			{
-				displayName: 'Browser',
-				name: 'browser',
-				type: 'options',
-				options: [
-					{
-						name: 'Default',
-						value: 'default',
-						description: 'Let Reduck pick: your paired browser',
-					},
-					{
-						name: 'Hosted by Reduck',
-						value: 'managed',
-						description: 'A browser that Reduck runs in the cloud',
-					},
-					{
-						name: 'Local Device',
-						value: 'local',
-						description: 'A machine paired with "reduck local"',
-					},
-					{
-						name: 'Specific Device',
-						value: 'device',
-						description: 'One paired device, chosen by its ID',
-					},
-					{
-						name: 'Your Browser Extension',
-						value: 'extension',
-						description: 'Your Chrome, paired with the Reduck extension',
-					},
-				],
-				default: 'default',
-				description:
-					'Where the script runs. The hosted browser may need to be enabled on your Reduck plan.',
-			},
-			{
-				displayName: 'Country',
-				name: 'country',
-				type: 'string',
-				default: '',
-				placeholder: 'e.g. FR',
-				description:
-					'Two-letter country code to run the hosted browser from that country. Hosted browser only.',
-			},
-			{
-				displayName: 'Device ID',
-				name: 'deviceId',
-				type: 'string',
-				default: '',
-				description: 'ID of the paired device to run on, from your Reduck devices page',
-			},
-			{
 				displayName: 'Fail on Script Error',
 				name: 'failOnScriptError',
 				type: 'boolean',
 				default: true,
 				description:
-					'Whether a run that ends in error stops the workflow. When off, the run is returned with status "error".',
+					'Whether a run that fails, is cancelled, or is still going when Max Wait ends stops the workflow. When off, the run is returned with its status.',
 			},
 			{
 				displayName: 'Max Wait (Seconds)',
@@ -160,7 +164,7 @@ export const scriptFields: INodeProperties[] = [
 				typeOptions: { minValue: 1, maxValue: 3600 },
 				default: 300,
 				description:
-					'How long to wait for the run to finish. If it is still running then, the node returns its current status.',
+					'How long to wait for the run to finish. A run still going then stops the workflow, unless Fail on Script Error is off.',
 			},
 		],
 	},
@@ -232,5 +236,14 @@ export const scriptFields: INodeProperties[] = [
 				default: 'private',
 			},
 		],
+	},
+	{
+		displayName: 'Simplify',
+		name: 'simplify',
+		type: 'boolean',
+		default: true,
+		displayOptions: { show: { resource: ['script'], operation: ['get', 'getAll'] } },
+		description:
+			'Whether to return a simplified version of the response instead of the raw data',
 	},
 ];

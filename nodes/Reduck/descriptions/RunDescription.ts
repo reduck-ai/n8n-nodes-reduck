@@ -12,7 +12,7 @@ export const runOperations: INodeProperties[] = [
 				name: 'Get',
 				value: 'get',
 				description: 'Get the status and result of a run',
-				action: 'Get a run',
+				action: 'Get run',
 			},
 			{
 				name: 'Get Many',
@@ -90,6 +90,6 @@ export const runFields: INodeProperties[] = [
 		default: true,
 		displayOptions: { show: { resource: ['run'] } },
 		description:
-			'Whether to return only the run ID, status, script, result and error instead of the full record',
+			'Whether to return a simplified version of the response instead of the raw data',
 	},
 ];

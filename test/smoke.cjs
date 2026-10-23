@@ -13,7 +13,7 @@ async function httpRequest(o) {
   if (o.json && o.body !== undefined && typeof o.body !== 'string') headers['Content-Type'] = 'application/json';
   const res = await fetch(url, { method: o.method, headers, body: o.body === undefined ? undefined : (typeof o.body === 'string' ? o.body : JSON.stringify(o.body)), signal: AbortSignal.timeout(o.timeout || 60000) });
   const text = await res.text();
-  if (!res.ok && !o.ignoreHttpStatusErrors) { const e = new Error(`HTTP ${res.status}: ${text.slice(0, 300)}`); e.httpCode = String(res.status); throw e; }
+  if (!res.ok && !o.ignoreHttpStatusErrors) { const e = new Error(`HTTP ${res.status}: ${text.slice(0, 300)}`); e.httpCode = String(res.status); e.response = { status: res.status, headers: Object.fromEntries(res.headers) }; throw e; }
   const body = o.json ? (text ? JSON.parse(text) : {}) : text;
   if (o.returnFullResponse) return { body, headers: Object.fromEntries(res.headers), statusCode: res.status };
   return body;

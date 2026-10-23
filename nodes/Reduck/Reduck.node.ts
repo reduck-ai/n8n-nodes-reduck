@@ -11,6 +11,7 @@ import type {
 import { NodeApiError, NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
 
 import {
+	cleanError,
 	getOwnHandle,
 	getRun,
 	isNotFound,
@@ -123,20 +124,27 @@ export class Reduck implements INodeType {
 					const limit = returnAll ? 0 : (this.getNodeParameter('limit', i) as number);
 					const filters = this.getNodeParameter('filters', i, {}) as IDataObject;
 					const qs: IDataObject = {};
-					if (filters.host) qs.host = filters.host;
+					if (filters.host) qs.host = hostOf(filters.host as string);
 					if (filters.search) qs.q = filters.search;
 					if (filters.visibility) qs.visibility = filters.visibility;
 					qs.archived = filters.includeArchived === true ? undefined : 'false';
-					const scripts = (await withOwnerFallback.call(this, owner || (await own()), async (handle) =>
-						reduckApiRequestAllItems.call(
+					const scripts = (await withOwnerFallback.call(this, owner || (await own()), async (handle) => {
+						const found = await reduckApiRequestAllItems.call(
 							this,
 							`/api/scripts/${pathSegment.call(this, handle, i)}`,
 							qs,
 							limit,
-						),
-					)) as IDataObject[];
+						);
+						// "@team" for a project lists nothing rather than failing: treat it as not found.
+						if (found.length === 0 && handle.startsWith('@') && owner) throw notFoundError(this);
+						return found;
+					})) as IDataObject[];
+					const simplify = this.getNodeParameter('simplify', i, true) as boolean;
 					for (const script of scripts) {
-						returnData.push({ json: script, pairedItem: { item: i } });
+						returnData.push({
+							json: simplify ? simplifyScript(script, false) : script,
+							pairedItem: { item: i },
+						});
 					}
 					continue;
 				}
@@ -150,7 +158,11 @@ export class Reduck implements INodeType {
 							`/api/scripts/${pathSegment.call(this, handle, i)}/${pathSegment.call(this, host, i)}/${pathSegment.call(this, slug, i)}`,
 						),
 					)) as IDataObject;
-					returnData.push({ json: script, pairedItem: { item: i } });
+					const simplify = this.getNodeParameter('simplify', i, true) as boolean;
+					returnData.push({
+						json: simplify ? simplifyScript(script, true) : script,
+						pairedItem: { item: i },
+					});
 					continue;
 				}
 
@@ -164,47 +176,58 @@ export class Reduck implements INodeType {
 
 					const spec: IDataObject = {};
 					// Without a browser, Reduck picks the user's paired browser.
-					const browser = (options.browser as string | undefined) ?? 'default';
-					const deviceId = ((options.deviceId as string | undefined) ?? '').trim();
-					if (browser === 'device' || deviceId) {
+					const browser = this.getNodeParameter('browser', i, 'default') as string;
+					if (browser === 'device') {
+						const deviceId = (this.getNodeParameter('deviceId', i, '') as string).trim();
 						if (!deviceId) {
-							throw new NodeOperationError(this.getNode(), 'Set Device ID to run on one paired device', {
+							throw new NodeOperationError(this.getNode(), 'Device ID is empty', {
 								itemIndex: i,
+								description: 'Set Device ID to the ID of one of your paired devices.',
 							});
 						}
 						spec.deviceId = deviceId;
 					} else if (browser !== 'default') {
 						spec.browser = browser;
 					}
-					if (options.country) {
-						if (spec.browser !== 'managed') {
-							throw new NodeOperationError(
-								this.getNode(),
-								'Country only works with the browser hosted by Reduck: set Browser to "Hosted by Reduck"',
-								{ itemIndex: i },
-							);
-						}
-						spec.country = options.country;
+					if (browser === 'managed') {
+						const country = (this.getNodeParameter('country', i, '') as string).trim();
+						if (country) spec.country = country;
 					}
 
 					const deadline = Date.now() + maxWait * 1000;
 					const serverWait = waitForCompletion ? Math.min(55, maxWait) : 0;
-					const started = owner
-						? ((await withOwnerFallback.call(this, owner, async (handle) =>
-								startRun.call(
-									this,
-									{ ...spec, script: { host, slug, handle, args: scriptArgs } },
-									serverWait,
-								),
-							)) as IDataObject)
-						: await startRun.call(this, { ...spec, script: { host, slug, args: scriptArgs } }, serverWait);
+					const start = async (handle?: string) =>
+						await startRun.call(
+							this,
+							{ ...spec, script: { host, slug, ...(handle ? { handle } : {}), args: scriptArgs } },
+							serverWait,
+						);
+					let started = await start(owner);
+					if (owner && started.httpCode === 404) started = await start(otherOwnerForm(owner));
+					const scriptPath = `${owner ? `${owner}/` : ''}${host}/${slug}`;
+					if (started.startError) {
+						// The run could not start (unknown script, invalid arguments, no device).
+						currentRun = { runId: null, status: 'error', script: scriptPath, result: null };
+						currentRun.error = started.startError;
+						if (failOnError) {
+							throw new NodeOperationError(this.getNode(), 'Could not start run', {
+								itemIndex: i,
+								description: String(started.startError),
+							});
+						}
+						returnData.push({
+							json: { ...currentRun, startedAt: null, finishedAt: null },
+							pairedItem: { item: i },
+						});
+						continue;
+					}
 					const runId = typeof started.runId === 'string' ? started.runId : undefined;
 					currentRun = {
 						runId: runId ?? null,
 						status: started.error ? 'error' : String(started.status ?? 'success'),
-						script: `${owner ? `${owner}/` : ''}${host}/${slug}`,
+						script: scriptPath,
 						result: started.result ?? null,
-						error: started.externalMessage ?? started.error ?? null,
+						error: cleanError(started.externalMessage ?? started.error),
 						startedAt: null,
 						finishedAt: null,
 					};
@@ -224,21 +247,19 @@ export class Reduck implements INodeType {
 
 					const status = String(currentRun.status);
 					if (failOnError && waitForCompletion && PENDING_STATUSES.includes(status)) {
-						throw new NodeOperationError(
-							this.getNode(),
-							`Reduck run ${runId} is still ${status} after ${maxWait} s`,
-							{
-								itemIndex: i,
-								description:
-									'Raise Max Wait, or turn off Wait for Completion and read the run later with Run → Get.',
-							},
-						);
+						throw new NodeOperationError(this.getNode(), `Run still ${status} after ${maxWait} s`, {
+							itemIndex: i,
+							description: `Run ${runId} goes on in Reduck. Raise 'Max Wait (Seconds)', or turn off 'Wait for Completion' and read the run later with Run → Get.`,
+						});
 					}
 					if (failOnError && (status === 'error' || status === 'cancelled')) {
 						throw new NodeOperationError(
 							this.getNode(),
-							`Reduck run ${runId ?? ''} ${status === 'cancelled' ? 'was cancelled' : 'failed'}: ${stringifyError(currentRun.error)}`,
-							{ itemIndex: i },
+							status === 'cancelled' ? 'Run was cancelled' : 'Run failed',
+							{
+								itemIndex: i,
+								description: `${stringifyError(currentRun.error)} (run ${runId ?? 'unknown'})`,
+							},
 						);
 					}
 					returnData.push({ json: currentRun, pairedItem: { item: i } });
@@ -264,7 +285,7 @@ export class Reduck implements INodeType {
 					const simplify = this.getNodeParameter('simplify', i, true) as boolean;
 					const qs: IDataObject = {};
 					if (filters.status) qs.status = filters.status;
-					if (filters.host) qs.host = filters.host;
+					if (filters.host) qs.host = hostOf(filters.host as string);
 					const runs = await reduckApiRequestAllItems.call(this, '/api/runs', qs, limit);
 					for (const run of runs) {
 						returnData.push({ json: simplify ? simplifyRun(run) : run, pairedItem: { item: i } });
@@ -279,8 +300,13 @@ export class Reduck implements INodeType {
 				);
 			} catch (error) {
 				if (this.continueOnFail()) {
+					const description = (error as { description?: string }).description;
 					returnData.push({
-						json: { ...(currentRun ?? {}), error: (error as Error).message },
+						json: {
+							...(currentRun ?? {}),
+							status: currentRun?.status ?? 'error',
+							error: description ? `${(error as Error).message}: ${description}` : (error as Error).message,
+						},
 						pairedItem: { item: i },
 					});
 					continue;
@@ -302,9 +328,21 @@ export class Reduck implements INodeType {
 	}
 }
 
+/** "jane" ⇄ "@jane": a user handle has an "@", a project handle has none. */
+function otherOwnerForm(owner: string): string {
+	return owner.startsWith('@') ? owner.slice(1) : `@${owner}`;
+}
+
+function notFoundError(context: IExecuteFunctions): NodeApiError {
+	return new NodeApiError(context.getNode(), {} as JsonObject, {
+		httpCode: '404',
+		message: 'Not found',
+	});
+}
+
 /**
- * Runs `request` for `owner`. A name without "@" is a project handle first;
- * when no project has it, the user "@name" is tried.
+ * Runs `request` for `owner`, and on "not found" once more with the other form
+ * of the name, so "reduck" and "@reduck", "jane" and "@jane" all work.
  */
 async function withOwnerFallback<T>(
 	this: IExecuteFunctions,
@@ -314,11 +352,19 @@ async function withOwnerFallback<T>(
 	try {
 		return await request(owner);
 	} catch (error) {
-		if (!isNotFound(error) || owner.startsWith('@')) {
-			throw new NodeApiError(this.getNode(), error as JsonObject);
-		}
-		return await request(`@${owner}`);
+		if (!isNotFound(error)) throw new NodeApiError(this.getNode(), error as JsonObject);
+		return await request(otherOwnerForm(owner));
 	}
+}
+
+/** "https://www.example.com/page" → "example.com", as the host filter expects. */
+function hostOf(value: string): string {
+	return value
+		.trim()
+		.replace(/^[a-z]+:\/\//i, '')
+		.split(/[/?#]/)[0]
+		.replace(/^www\./i, '')
+		.toLowerCase();
 }
 
 /**
@@ -337,7 +383,7 @@ async function resolveScript(
 	if (parts.length === 3) return { owner: parts[0], host: parts[1], slug: parts[2] };
 	throw new NodeOperationError(
 		this.getNode(),
-		`Script "${value}" is not valid. Use "host/slug", for example "example.com/get_prices".`,
+		`Script "${value}" is not valid. Use "host/slug", for example "example.com/export_orders".`,
 		{ itemIndex },
 	);
 }
@@ -357,6 +403,25 @@ function parseArguments(this: IExecuteFunctions, itemIndex: number): IDataObject
 	throw new NodeOperationError(this.getNode(), 'Script Arguments must be a JSON object', {
 		itemIndex,
 	});
+}
+
+/** At most 10 fields, as the n8n UX guidelines ask for Simplify. */
+function simplifyScript(script: IDataObject, withInputs: boolean): IDataObject {
+	const author = (script.author ?? {}) as IDataObject;
+	const version = (script.current_version ?? {}) as IDataObject;
+	const simple: IDataObject = {
+		script: `${author.handle}/${script.host}/${script.slug}`,
+		name: script.name,
+		description: script.description,
+		visibility: script.visibility,
+		sideEffects: version.side_effects ?? null,
+		loggedIn: version.logged_in ?? null,
+		successRate: script.success_rate ?? null,
+		lastRunAt: script.last_run_at ?? null,
+		archived: script.archived_at != null,
+	};
+	if (withInputs) simple.inputSchema = version.input_schema ?? null;
+	return simple;
 }
 
 function stringifyError(error: unknown): string {

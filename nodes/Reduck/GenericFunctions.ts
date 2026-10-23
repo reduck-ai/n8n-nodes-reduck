@@ -9,7 +9,7 @@ import type {
 import { NodeApiError, NodeOperationError, sleep } from 'n8n-workflow';
 
 export const API_BASE_URL = 'https://reduck.ai';
-/** Starts a run: the endpoint the Reduck CLI uses, on the run service. */
+/** Starts a run (POST /run on the Reduck run service, documented at docs.reduck.ai/upload-files). */
 export const RUN_URL = 'https://mcp.reduck.ai/run';
 
 /** Statuses a run can still leave. */
@@ -31,15 +31,34 @@ export async function reduckApiRequest(
 		json: true,
 		timeout: 30000,
 	};
-	try {
-		return (await this.helpers.httpRequestWithAuthentication.call(
-			this,
-			'reduckApi',
-			options,
-		)) as IDataObject;
-	} catch (error) {
-		throw new NodeApiError(this.getNode(), error as JsonObject);
+	// Reduck limits requests per API key: on 429, wait as told and try again.
+	for (let attempt = 1; ; attempt++) {
+		try {
+			return (await this.helpers.httpRequestWithAuthentication.call(
+				this,
+				'reduckApi',
+				options,
+			)) as IDataObject;
+		} catch (error) {
+			const retryAfter = rateLimitDelay(error);
+			if (retryAfter === undefined || attempt >= 5) {
+				throw new NodeApiError(this.getNode(), error as JsonObject);
+			}
+			await sleep(Math.min(retryAfter * attempt, 60000));
+		}
 	}
+}
+
+/** For a 429 answer, the milliseconds to wait before trying again; otherwise undefined. */
+function rateLimitDelay(error: unknown): number | undefined {
+	const e = error as {
+		httpCode?: string;
+		response?: { status?: number; headers?: Record<string, string> };
+	};
+	const status = e.response?.status ?? Number(e.httpCode);
+	if (status !== 429) return undefined;
+	const header = Number(e.response?.headers?.['retry-after']);
+	return Number.isFinite(header) && header > 0 ? header * 1000 : 2000;
 }
 
 /**
@@ -66,6 +85,8 @@ export async function reduckApiRequestAllItems(
 		hasNextPage = response.hasNextPage === true;
 		if (limit > 0 && items.length >= limit) return items.slice(0, limit);
 		page++;
+		// Space the pages out to stay under the API's rate limit.
+		if (hasNextPage) await sleep(300);
 	}
 	return items;
 }
@@ -135,18 +156,36 @@ export async function startRun(
 	if (response.statusCode === 401 || response.statusCode === 403) {
 		throw new NodeApiError(this.getNode(), {} as JsonObject, {
 			httpCode: String(response.statusCode),
-			message: 'Authorization failed: check the API key of your Reduck credential',
+			message: 'Authorization failed',
+			description: 'Check the API key of your Reduck credential.',
 		});
 	}
 	if (response.statusCode >= 400 && typeof body.runId !== 'string') {
 		// Drop the hint meant for AI agents ("not found — read_script(...)").
-		const reason = String(body.error ?? `HTTP ${response.statusCode}`).split(' — ')[0];
-		throw new NodeApiError(this.getNode(), {} as JsonObject, {
-			httpCode: String(response.statusCode),
-			message: `Reduck could not start the run: ${reason}`,
-		});
+		const reason =
+			cleanError(String(body.error ?? '').split(' — ')[0]) ?? `HTTP ${response.statusCode}`;
+		const deviceHint = /device/i.test(reason)
+			? " Pair the Reduck extension in Chrome, or set 'Browser' to 'Hosted by Reduck'."
+			: '';
+		// The caller decides whether this stops the workflow (Fail on Script Error).
+		return { startError: `${reason}.${deviceHint}`, httpCode: response.statusCode };
 	}
 	return body;
+}
+
+/**
+ * Reduces a script error to its message: the first line, without the error
+ * class ("UserError: ") or the line of script code Reduck appends.
+ */
+export function cleanError(error: unknown): string | null {
+	if (error === null || error === undefined || error === '') return null;
+	const text =
+		typeof error === 'string'
+			? error
+			: typeof error === 'object' && 'message' in error
+				? String((error as { message: unknown }).message)
+				: JSON.stringify(error);
+	return text.split('\n')[0].replace(/^[A-Za-z]*Error: /, '').trim();
 }
 
 /** Shapes a run read from the REST API as the node's run output. */
@@ -158,7 +197,7 @@ export function simplifyRun(run: IDataObject): IDataObject {
 		status: run.status,
 		script: script.host ? `${script.handle}/${script.host}/${script.slug}` : run.name,
 		result: outcome.result ?? null,
-		error: outcome.error ?? null,
+		error: cleanError(outcome.error),
 		startedAt: run.started_at,
 		finishedAt: run.finished_at ?? null,
 	};
