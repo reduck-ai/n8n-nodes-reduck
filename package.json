@@ -1,0 +1,52 @@
+{
+    "name": "n8n-nodes-reduck",
+    "version": "0.1.0",
+    "description": "n8n node for Reduck: run your saved browser scripts and read their results",
+    "license": "MIT",
+    "homepage": "https://docs.reduck.ai/n8n/",
+    "keywords": [
+        "n8n-community-node-package",
+        "reduck",
+        "browser automation"
+    ],
+    "author": {
+        "name": "Reduck AI",
+        "email": "support@reduck.ai"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/reduck-ai/n8n-nodes-reduck.git"
+    },
+    "scripts": {
+        "build": "n8n-node build",
+        "build:watch": "tsc --watch",
+        "dev": "n8n-node dev",
+        "lint": "n8n-node lint",
+        "lint:fix": "n8n-node lint --fix",
+        "release": "n8n-node release",
+        "prepublishOnly": "n8n-node prerelease"
+    },
+    "files": [
+        "dist"
+    ],
+    "n8n": {
+        "n8nNodesApiVersion": 1,
+        "strict": true,
+        "credentials": [
+            "dist/credentials/ReduckApi.credentials.js"
+        ],
+        "nodes": [
+            "dist/nodes/Reduck/Reduck.node.js"
+        ]
+    },
+    "devDependencies": {
+        "@n8n/node-cli": "*",
+        "eslint": "9.32.0",
+        "prettier": "3.6.2",
+        "release-it": "^21.1.0",
+        "typescript": "5.9.2"
+    },
+    "peerDependencies": {
+        "n8n-workflow": "*"
+    }
+}

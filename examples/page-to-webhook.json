@@ -1,0 +1,58 @@
+{
+  "name": "Reduck: web page to webhook",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "reduck-page",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "reduck-page"
+    },
+    {
+      "parameters": {
+        "resource": "script",
+        "operation": "run",
+        "script": {
+          "__rl": true,
+          "mode": "path",
+          "value": "example.com/get_prices"
+        },
+        "scriptArguments": "={{ JSON.stringify($json.body ?? {}) }}",
+        "waitForCompletion": true,
+        "options": {
+          "browser": "managed"
+        }
+      },
+      "name": "Run Reduck script",
+      "type": "n8n-nodes-reduck.reduck",
+      "typeVersion": 1,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.result }}",
+        "options": {}
+      },
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [480, 0]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Run Reduck script", "type": "main", "index": 0 }]]
+    },
+    "Run Reduck script": {
+      "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {}
+}
