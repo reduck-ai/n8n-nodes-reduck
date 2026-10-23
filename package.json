@@ -3,7 +3,7 @@
     "version": "0.1.0",
     "description": "n8n node for Reduck: run your saved browser scripts and read their results",
     "license": "MIT",
-    "homepage": "https://docs.reduck.ai/n8n/",
+    "homepage": "https://github.com/reduck-ai/n8n-nodes-reduck#readme",
     "keywords": [
         "n8n-community-node-package",
         "reduck",
@@ -27,7 +27,10 @@
         "prepublishOnly": "n8n-node prerelease"
     },
     "files": [
-        "dist"
+        "dist",
+        "!dist/**/*.map",
+        "!dist/**/*.d.ts",
+        "!dist/tsconfig.tsbuildinfo"
     ],
     "n8n": {
         "n8nNodesApiVersion": 1,

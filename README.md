@@ -27,7 +27,7 @@ Follow the [installation guide](https://docs.n8n.io/integrations/community-nodes
 
 You need a Reduck account and an API key.
 
-1. Sign in at [reduck.ai](https://reduck.ai) and create an API key in your settings.
+1. Sign in at [reduck.ai](https://reduck.ai) and create an API key in your account.
 2. In n8n, create a **Reduck API** credential and paste the key.
 
 n8n checks the key when you save the credential.
@@ -36,38 +36,45 @@ n8n checks the key when you save the credential.
 
 **Choosing a script.** In *Script*, pick one of your scripts from the list, or switch to *By Path* and type `host/slug` (for example `example.com/get_prices`). For a script shared with you by another user or a project, type `owner/host/slug`.
 
-**Arguments.** *Script Arguments* takes a JSON object shaped by the script's input schema. Use *Script → Get* to see which inputs a script takes. You can use expressions, for example `{ "url": "{{ $json.url }}" }`.
+**Arguments.** *Script Arguments* takes a JSON object shaped by the script's input schema. Use *Script → Get* to see which inputs a script takes. To build them from the incoming item, switch the field to *Expression*, for example `{{ JSON.stringify({ url: $json.url }) }}`.
 
 **Where the script runs** (*Options → Browser*):
 
-- *Hosted by Reduck* (default): a cloud browser, nothing to install. Add *Country* to run it from a given country.
+- *Default*: Reduck picks your paired browser.
+- *Hosted by Reduck*: a cloud browser, nothing to install, if it is enabled on your plan. Add *Country* to run it from a given country.
 - *Your Browser Extension*: your own Chrome, paired with the Reduck extension.
 - *Local Device*: a machine paired with `reduck local`.
 - *Specific Device*: one paired device, by its ID.
+
+**Retries.** Leave the node's *Retry On Fail* setting off for scripts that change something on a website: a retry starts the script again.
 
 **Output.** *Script → Run* returns one item:
 
 ```json
 {
-  "runId": "807d9b89-379c-4108-9583-e6060eadab5c",
+  "runId": "3b6b001d-44da-4096-afbf-cd5fac1060fb",
   "status": "success",
-  "script": "example.com/get_prices",
+  "script": "@jane/example.com/get_prices",
   "result": { "...": "what the script returned" },
-  "error": null
+  "error": null,
+  "startedAt": "2026-10-23T16:05:45.166Z",
+  "finishedAt": "2026-10-23T16:05:46.790Z"
 }
 ```
 
-`status` is `success`, `error`, or, if the run is still going when the wait ends, `queued` or `running`. A run that ends in error stops the workflow, unless you turn off *Options → Fail on Script Error* or turn on the node's *Continue On Fail* setting.
+`status` is `success`, `error`, `cancelled`, or `queued` / `running` for a run you did not wait for. A run that fails, is cancelled, or is still going when *Max Wait* ends stops the workflow, unless you turn off *Options → Fail on Script Error* (the item is then returned with its status) or turn on the node's *Continue On Fail* setting (the error item keeps the `runId`).
 
-**AI Agents.** The node can be used as a tool by the AI Agent node, so an agent can list your scripts and run them.
+**Stopping.** Stopping the workflow in n8n stops the node from waiting; a run already started goes on in Reduck.
+
+**AI Agents.** The node can be used as a tool by the AI Agent node. Each tool node does one operation: add one set to *Script → Run* to let the agent run scripts, and another set to *Script → Get Many* to let it find them.
 
 ## Example workflow
 
-[`examples/page-to-webhook.json`](examples/page-to-webhook.json) turns a web page into an HTTP endpoint: a Webhook node receives a request, the Reduck node runs a script, and a Respond to Webhook node sends back the script's result as JSON. Import it in n8n (*Workflows → Import from File*), set your credential and pick your script.
+[`examples/page-to-webhook.json`](examples/page-to-webhook.json) turns a web page into an HTTP endpoint: a Webhook node receives a POST request, the Reduck node runs a script with the request body as its arguments, and a Respond to Webhook node sends back `{status, result, error}` as JSON. Import it in n8n (*Workflows → Import from File*), set your credential, pick your script in place of the example one, and activate the workflow.
 
 ## Compatibility
 
-Tested with n8n 2.x.
+Tested with n8n 2.44.
 
 ## Resources
 

@@ -13,7 +13,7 @@ export class ReduckApi implements ICredentialType {
 
 	icon: Icon = { light: 'file:../nodes/Reduck/reduck.svg', dark: 'file:../nodes/Reduck/reduck.dark.svg' };
 
-	documentationUrl = 'https://docs.reduck.ai/n8n/';
+	documentationUrl = 'https://github.com/reduck-ai/n8n-nodes-reduck#credentials';
 
 	properties: INodeProperties[] = [
 		{
@@ -23,7 +23,7 @@ export class ReduckApi implements ICredentialType {
 			typeOptions: { password: true },
 			required: true,
 			default: '',
-			description: 'An API key from your Reduck dashboard (Settings → API keys)',
+			description: 'An API key created in your Reduck account on reduck.ai',
 		},
 	];
 

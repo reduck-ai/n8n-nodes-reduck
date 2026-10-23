@@ -2,3 +2,4 @@ dist
 node_modules
 .n8n-dev-owner.txt
 *.tgz
+.env.test

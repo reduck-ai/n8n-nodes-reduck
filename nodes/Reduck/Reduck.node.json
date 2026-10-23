@@ -6,7 +6,7 @@
 	"resources": {
 		"credentialDocumentation": [
 			{
-				"url": "https://docs.reduck.ai/n8n/"
+				"url": "https://github.com/reduck-ai/n8n-nodes-reduck#credentials"
 			}
 		],
 		"primaryDocumentation": [

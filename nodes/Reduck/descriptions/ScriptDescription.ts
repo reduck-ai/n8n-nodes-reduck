@@ -54,7 +54,7 @@ export const scriptFields: INodeProperties[] = [
 				displayName: 'By Path',
 				name: 'path',
 				type: 'string',
-				placeholder: 'example.com/get_prices',
+				placeholder: 'e.g. example.com/get_prices',
 				hint: 'Use "host/slug" for your own script, or "owner/host/slug" for a script shared with you',
 				validation: [
 					{
@@ -100,14 +100,14 @@ export const scriptFields: INodeProperties[] = [
 				type: 'options',
 				options: [
 					{
+						name: 'Default',
+						value: 'default',
+						description: 'Let Reduck pick: your paired browser',
+					},
+					{
 						name: 'Hosted by Reduck',
 						value: 'managed',
 						description: 'A browser that Reduck runs in the cloud',
-					},
-					{
-						name: 'Your Browser Extension',
-						value: 'extension',
-						description: 'Your Chrome, paired with the Reduck extension',
 					},
 					{
 						name: 'Local Device',
@@ -119,16 +119,22 @@ export const scriptFields: INodeProperties[] = [
 						value: 'device',
 						description: 'One paired device, chosen by its ID',
 					},
+					{
+						name: 'Your Browser Extension',
+						value: 'extension',
+						description: 'Your Chrome, paired with the Reduck extension',
+					},
 				],
-				default: 'managed',
-				description: 'Where the script runs',
+				default: 'default',
+				description:
+					'Where the script runs. The hosted browser may need to be enabled on your Reduck plan.',
 			},
 			{
 				displayName: 'Country',
 				name: 'country',
 				type: 'string',
 				default: '',
-				placeholder: 'FR',
+				placeholder: 'e.g. FR',
 				description:
 					'Two-letter country code to run the hosted browser from that country. Hosted browser only.',
 			},
@@ -163,10 +169,10 @@ export const scriptFields: INodeProperties[] = [
 		name: 'owner',
 		type: 'string',
 		default: '',
-		placeholder: '@jane',
+		placeholder: 'e.g. @jane',
 		displayOptions: { show: { resource: ['script'], operation: ['getAll'] } },
 		description:
-			'Whose scripts to list: a user ("@jane") or a project handle. Leave empty for your own scripts.',
+			'Whose scripts to list: a user, with its "@" ("@jane"), or a project handle. Leave empty for your own scripts.',
 	},
 	{
 		displayName: 'Return All',
@@ -198,7 +204,7 @@ export const scriptFields: INodeProperties[] = [
 				name: 'host',
 				type: 'string',
 				default: '',
-				placeholder: 'example.com',
+				placeholder: 'e.g. example.com',
 				description: 'Only scripts for this website',
 			},
 			{

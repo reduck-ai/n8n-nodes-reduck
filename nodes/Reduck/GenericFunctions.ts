@@ -9,12 +9,11 @@ import type {
 import { NodeApiError, NodeOperationError, sleep } from 'n8n-workflow';
 
 export const API_BASE_URL = 'https://reduck.ai';
-export const MCP_URL = 'https://mcp.reduck.ai/mcp';
-
-const MCP_PROTOCOL_VERSION = '2025-06-18';
+/** Starts a run: the endpoint the Reduck CLI uses, on the run service. */
+export const RUN_URL = 'https://mcp.reduck.ai/run';
 
 /** Statuses a run can still leave. */
-const PENDING_STATUSES = ['queued', 'running'];
+export const PENDING_STATUSES = ['queued', 'running'];
 
 type ReduckContext = IExecuteFunctions | ILoadOptionsFunctions;
 
@@ -30,6 +29,7 @@ export async function reduckApiRequest(
 		url: `${API_BASE_URL}${endpoint}`,
 		qs,
 		json: true,
+		timeout: 30000,
 	};
 	try {
 		return (await this.helpers.httpRequestWithAuthentication.call(
@@ -82,130 +82,74 @@ export async function getOwnHandle(this: ReduckContext): Promise<string> {
 	return me.handle.startsWith('@') ? me.handle : `@${me.handle}`;
 }
 
-/** Normalizes a script owner typed by the user: "jane" and "@jane" both work for users. */
-export function ownerPath(owner: string): string {
-	return encodeURIComponent(owner.trim());
+/**
+ * Encodes one path segment typed by the user (an owner, host, slug or run ID).
+ * A user owner needs its "@" ("@jane"); without it the name is read as a project.
+ */
+export function pathSegment(this: ReduckContext, value: string, itemIndex?: number): string {
+	const segment = value.trim();
+	if (segment === '' || segment === '.' || segment === '..' || segment.includes('/')) {
+		throw new NodeOperationError(this.getNode(), `"${value}" is not a valid name or ID`, {
+			itemIndex,
+		});
+	}
+	return encodeURIComponent(segment);
+}
+
+export function isNotFound(error: unknown): boolean {
+	return (error as { httpCode?: string }).httpCode === '404';
 }
 
 /**
- * Reads one JSON-RPC message from an MCP Streamable HTTP response, which is
- * either plain JSON or a server-sent event stream.
+ * Starts a run and lets the run service wait up to `waitForSeconds` (at most
+ * 60) for it to finish. The answer is `{runId, result}` or `{runId, error}` for
+ * a finished run, `{runId, status: "queued" | "running"}` for one still going,
+ * or `{error}` when the run cannot start (unknown script, no device). The HTTP
+ * timeout is longer than that wait, so the runId is only lost if the
+ * connection drops mid-call.
  */
-function parseMcpBody(body: string): IDataObject {
-	const trimmed = body.trim();
-	if (trimmed.startsWith('{')) return JSON.parse(trimmed) as IDataObject;
-	const data = trimmed
-		.split('\n')
-		.filter((line) => line.startsWith('data:'))
-		.map((line) => line.slice(5).trim())
-		.filter((line) => line.startsWith('{'));
-	for (const line of data) {
-		const message = JSON.parse(line) as IDataObject;
-		if ('result' in message || 'error' in message) return message;
-	}
-	return {};
-}
-
-async function mcpPost(
+export async function startRun(
 	this: IExecuteFunctions,
-	payload: IDataObject,
-	sessionId: string | undefined,
-	timeout: number,
-): Promise<{ body: IDataObject; sessionId?: string }> {
-	const headers: IDataObject = {
-		'Content-Type': 'application/json',
-		Accept: 'application/json, text/event-stream',
-		'MCP-Protocol-Version': MCP_PROTOCOL_VERSION,
-	};
-	if (sessionId) headers['Mcp-Session-Id'] = sessionId;
-	try {
-		const response = (await this.helpers.httpRequestWithAuthentication.call(this, 'reduckApi', {
-			method: 'POST',
-			url: MCP_URL,
-			headers,
-			body: JSON.stringify(payload),
-			json: false,
-			encoding: 'text',
-			returnFullResponse: true,
-			timeout,
-		})) as { body: string; headers: IDataObject };
-		const responseSession = response.headers['mcp-session-id'];
-		return {
-			body: response.body ? parseMcpBody(String(response.body)) : {},
-			sessionId: typeof responseSession === 'string' ? responseSession : sessionId,
-		};
-	} catch (error) {
-		throw new NodeApiError(this.getNode(), error as JsonObject);
-	}
-}
-
-/**
- * Calls one tool on the Reduck MCP server: opens a session, calls the tool,
- * then closes the session. Returns the tool's structured result.
- */
-export async function callReduckTool(
-	this: IExecuteFunctions,
-	name: string,
-	args: IDataObject,
-	timeout: number,
+	spec: IDataObject,
+	waitForSeconds: number,
 ): Promise<IDataObject> {
-	const init = await mcpPost.call(
-		this,
-		{
-			jsonrpc: '2.0',
-			id: 1,
-			method: 'initialize',
-			params: {
-				protocolVersion: MCP_PROTOCOL_VERSION,
-				capabilities: {},
-				clientInfo: { name: 'n8n-nodes-reduck', version: '0.1.0' },
-			},
-		},
-		undefined,
-		30000,
-	);
-	if (init.body.error) {
-		throw new NodeApiError(this.getNode(), init.body.error as JsonObject);
+	let response: { statusCode: number; body: IDataObject };
+	try {
+		response = (await this.helpers.httpRequestWithAuthentication.call(this, 'reduckApi', {
+			method: 'POST',
+			url: RUN_URL,
+			body: { ...spec, waitForSeconds },
+			json: true,
+			timeout: (waitForSeconds + 30) * 1000,
+			returnFullResponse: true,
+			ignoreHttpStatusErrors: true,
+		})) as { statusCode: number; body: IDataObject };
+	} catch (error) {
+		throw new NodeApiError(this.getNode(), error as JsonObject, {
+			message: 'Could not reach Reduck to start the run',
+			description:
+				'If the connection dropped after the request was sent, the run may have started: check Run → Get Many before running the node again.',
+		});
 	}
-	const sessionId = init.sessionId;
-	await mcpPost.call(this, { jsonrpc: '2.0', method: 'notifications/initialized' }, sessionId, 30000);
-
-	const call = await mcpPost.call(
-		this,
-		{ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name, arguments: args } },
-		sessionId,
-		timeout,
-	);
-
-	if (sessionId) {
-		try {
-			await this.helpers.httpRequestWithAuthentication.call(this, 'reduckApi', {
-				method: 'DELETE',
-				url: MCP_URL,
-				headers: { 'Mcp-Session-Id': sessionId },
-			});
-		} catch {
-			// The server expires idle sessions on its own.
-		}
+	const body = response.body ?? {};
+	if (response.statusCode === 401 || response.statusCode === 403) {
+		throw new NodeApiError(this.getNode(), {} as JsonObject, {
+			httpCode: String(response.statusCode),
+			message: 'Authorization failed: check the API key of your Reduck credential',
+		});
 	}
-
-	if (call.body.error) {
-		throw new NodeApiError(this.getNode(), call.body.error as JsonObject);
+	if (response.statusCode >= 400 && typeof body.runId !== 'string') {
+		// Drop the hint meant for AI agents ("not found — read_script(...)").
+		const reason = String(body.error ?? `HTTP ${response.statusCode}`).split(' — ')[0];
+		throw new NodeApiError(this.getNode(), {} as JsonObject, {
+			httpCode: String(response.statusCode),
+			message: `Reduck could not start the run: ${reason}`,
+		});
 	}
-	const result = (call.body.result ?? {}) as IDataObject;
-	const content = (result.content as IDataObject[] | undefined) ?? [];
-	const text = content
-		.filter((part) => part.type === 'text')
-		.map((part) => part.text)
-		.join('\n');
-	if (result.isError === true) {
-		throw new NodeOperationError(this.getNode(), text || `Reduck tool ${name} failed`);
-	}
-	if (result.structuredContent) return result.structuredContent as IDataObject;
-	return { text };
+	return body;
 }
 
-/** Shapes a run read from the REST API like the output of Run Script. */
+/** Shapes a run read from the REST API as the node's run output. */
 export function simplifyRun(run: IDataObject): IDataObject {
 	const outcome = (run.result ?? {}) as IDataObject;
 	const script = (run.script ?? {}) as IDataObject;
@@ -220,26 +164,41 @@ export function simplifyRun(run: IDataObject): IDataObject {
 	};
 }
 
+/** Reads one run from the REST API, shaped as the node's run output. */
+export async function getRun(this: IExecuteFunctions, runId: string): Promise<IDataObject> {
+	return simplifyRun(
+		await reduckApiRequest.call(this, 'GET', `/api/runs/${encodeURIComponent(runId)}`),
+	);
+}
+
 /**
- * Waits for a run to leave the queued/running states, reading it from the
- * REST API every few seconds, until `maxWaitSeconds` have passed.
+ * Waits until `deadline` (a timestamp) for a run to leave the queued/running
+ * states, reading it from the REST API. Network errors, 429 and 5xx are
+ * retried on the next tick rather than failing the node, since a failure here
+ * would make n8n's Retry On Fail start the script a second time. Other errors
+ * (401, 404) stop the wait. Stopping the execution in n8n stops the wait too;
+ * the run itself goes on in Reduck.
  */
 export async function waitForRun(
 	this: IExecuteFunctions,
 	runId: string,
-	maxWaitSeconds: number,
-	firstDelayMs: number,
-): Promise<IDataObject> {
-	const deadline = Date.now() + maxWaitSeconds * 1000;
-	let delay = Math.min(Math.max(firstDelayMs, 1000), 10000);
-	for (;;) {
+	deadline: number,
+): Promise<IDataObject | undefined> {
+	const signal = this.getExecutionCancelSignal?.();
+	let delay = 1000;
+	let last: IDataObject | undefined;
+	while (Date.now() + delay <= deadline && !signal?.aborted) {
 		await sleep(delay);
-		const run = simplifyRun(
-			await reduckApiRequest.call(this, 'GET', `/api/runs/${encodeURIComponent(runId)}`),
-		);
-		if (!PENDING_STATUSES.includes(String(run.status)) || Date.now() + delay > deadline) {
-			return run;
+		try {
+			last = await getRun.call(this, runId);
+			if (!PENDING_STATUSES.includes(String(last.status))) return last;
+		} catch (error) {
+			const code = Number((error as { httpCode?: string }).httpCode);
+			if (code && code !== 429 && code < 500) {
+				throw new NodeApiError(this.getNode(), error as JsonObject);
+			}
 		}
 		delay = Math.min(delay * 1.5, 10000);
 	}
+	return last;
 }

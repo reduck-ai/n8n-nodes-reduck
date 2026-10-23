@@ -65,7 +65,7 @@ export const runFields: INodeProperties[] = [
 				name: 'host',
 				type: 'string',
 				default: '',
-				placeholder: 'example.com',
+				placeholder: 'e.g. example.com',
 				description: 'Only runs of scripts for this website',
 			},
 			{
