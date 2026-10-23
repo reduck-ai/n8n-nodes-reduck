@@ -1,4 +1,4 @@
-# n8n-nodes-reduck
+# @reduck-ai/n8n-nodes-reduck
 
 This is an n8n community node for [Reduck](https://reduck.ai). It lets your workflows run the browser scripts you saved in Reduck and use their results.
 
@@ -8,7 +8,7 @@ A Reduck script does one task on one website: check that a page of your site loa
 
 ## Installation
 
-Follow the [installation guide](https://docs.n8n.io/integrations/community-nodes/installation/) in the n8n community nodes documentation, and install `n8n-nodes-reduck`.
+Follow the [installation guide](https://docs.n8n.io/integrations/community-nodes/installation/) in the n8n community nodes documentation, and install `@reduck-ai/n8n-nodes-reduck`.
 
 ## Prerequisites
 

@@ -34,7 +34,7 @@
         }
       },
       "name": "Run Reduck script",
-      "type": "n8n-nodes-reduck.reduck",
+      "type": "@reduck-ai/n8n-nodes-reduck.reduck",
       "typeVersion": 1,
       "position": [
         240,

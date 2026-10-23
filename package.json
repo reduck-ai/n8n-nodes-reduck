@@ -1,5 +1,5 @@
 {
-    "name": "n8n-nodes-reduck",
+    "name": "@reduck-ai/n8n-nodes-reduck",
     "version": "0.1.0",
     "description": "n8n node for Reduck: run your saved browser scripts and read their results",
     "license": "MIT",
@@ -51,5 +51,8 @@
     },
     "peerDependencies": {
         "n8n-workflow": "*"
+    },
+    "publishConfig": {
+        "access": "public"
     }
 }

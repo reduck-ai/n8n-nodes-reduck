@@ -1,8 +1,11 @@
 {
-	"node": "n8n-nodes-reduck.reduck",
+	"node": "@reduck-ai/n8n-nodes-reduck.reduck",
 	"nodeVersion": "1.0",
 	"codexVersion": "1.0",
-	"categories": ["Productivity", "Development"],
+	"categories": [
+		"Productivity",
+		"Development"
+	],
 	"resources": {
 		"credentialDocumentation": [
 			{
