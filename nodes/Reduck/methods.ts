@@ -8,7 +8,7 @@ import {
 	type ResourceMapperFields,
 } from 'n8n-workflow';
 
-import { parseScriptAddress, reduckRequest } from './transport';
+import { parseScriptAddress, reduckRequest, reduckUrl } from './transport';
 
 interface ScriptSummary {
 	name: string;
@@ -32,7 +32,10 @@ interface Script {
 
 const PAGE_SIZE = 50;
 
-// The scripts the account can run: its own, its projects', and the official catalogue.
+// The scripts the account can run: its own, its projects', and the official catalogue. Each one
+// links to its page on Reduck, which shows its description, its input and its output: n8n shows
+// none of them in a node (a list item's `description` is not rendered either), so the node points
+// at the page that already has them.
 export async function searchScripts(
 	this: ILoadOptionsFunctions,
 	filter?: string,
@@ -43,11 +46,12 @@ export async function searchScripts(
 	const answer = await reduckRequest<{ data: ScriptSummary[]; has_next_page: boolean }>(this, 'GET', '/api/scripts', {
 		qs: { page, page_size: PAGE_SIZE, ...(filter ? { q: filter } : {}) },
 	});
+	const pages = await reduckUrl(this, '/explore/scripts/');
 	return {
-		results: answer.data.map((script) => ({
-			name: `${script.name} (${script.author.handle}/${script.host}/${script.slug})`,
-			value: `${script.author.handle}/${script.host}/${script.slug}`,
-		})),
+		results: answer.data.map((script) => {
+			const address = `${script.author.handle}/${script.host}/${script.slug}`;
+			return { name: `${script.name} (${address})`, value: address, url: `${pages}${address}` };
+		}),
 		paginationToken: answer.has_next_page ? String(page + 1) : undefined,
 	};
 }

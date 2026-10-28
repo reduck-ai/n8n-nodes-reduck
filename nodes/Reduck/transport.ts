@@ -7,6 +7,12 @@ import {
 	type JsonObject,
 } from 'n8n-workflow';
 
+// The Reduck environment the credential names: its API and its pages share this origin.
+export async function reduckUrl(ctx: IExecuteFunctions | ILoadOptionsFunctions, path: string): Promise<string> {
+	const credentials = await ctx.getCredentials('reduckApi');
+	return `${String(credentials.baseUrl).replace(/\/+$/, '')}${path}`;
+}
+
 // The one place this package calls Reduck. The credential adds the API key; the base URL comes
 // from the credential too, so the same node works against any Reduck environment.
 export async function reduckRequest<T>(
@@ -15,12 +21,11 @@ export async function reduckRequest<T>(
 	path: string,
 	options: { body?: IDataObject; qs?: IDataObject } = {},
 ): Promise<T> {
-	const credentials = await ctx.getCredentials('reduckApi');
-	const baseUrl = String(credentials.baseUrl).replace(/\/+$/, '');
+	const url = await reduckUrl(ctx, path);
 	try {
 		return (await ctx.helpers.httpRequestWithAuthentication.call(ctx, 'reduckApi', {
 			method,
-			url: `${baseUrl}${path}`,
+			url,
 			json: true,
 			...options,
 		})) as T;
