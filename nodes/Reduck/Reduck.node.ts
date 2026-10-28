@@ -222,7 +222,13 @@ async function runScript(ctx: IExecuteFunctions, i: number): Promise<Run> {
 			itemIndex: i,
 		});
 	}
-	const args = (ctx.getNodeParameter('args', i, {}) as { value?: IDataObject | null }).value ?? {};
+	// The form sends every field, a blank one as null. A blank field is one the caller did not give:
+	// left out, the script's schema fills in its default or refuses a required argument by name,
+	// where null would be coerced to 0 or "" and pass.
+	const form = (ctx.getNodeParameter('args', i, {}) as { value?: IDataObject | null }).value ?? {};
+	const args = Object.fromEntries(
+		Object.entries(form).filter(([, value]) => value !== null && value !== undefined && value !== ''),
+	);
 	const deviceId = ctx.getNodeParameter('deviceId', i, '') as string;
 	const waitForResult = ctx.getNodeParameter('waitForResult', i, true) as boolean;
 
