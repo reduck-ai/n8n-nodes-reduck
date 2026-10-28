@@ -12,7 +12,7 @@ import {
 } from 'n8n-workflow';
 
 import { getDevices, getScriptArgs, searchScripts } from './methods';
-import { parseScriptAddress, reduckRequest, type Run } from './transport';
+import { parseScriptAddress, reduckRequest, reduckUrl, type Run } from './transport';
 
 const POLL_MS = 2000;
 // What a start waits on the server before it answers. A longer run is then read again here.
@@ -224,7 +224,7 @@ export class Reduck implements INodeType {
 				if (run.result && 'error' in run.result) {
 					throw new NodeOperationError(this.getNode(), run.result.error, {
 						itemIndex: i,
-						description: `Run ${run.id}`,
+						description: `The run's steps and screenshots: ${await reduckUrl(this, `/runs/${run.id}`)}`,
 					});
 				}
 				out.push({ json: toItem(run), pairedItem: { item: i } });
