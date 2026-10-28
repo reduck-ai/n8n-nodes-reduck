@@ -1,10 +1,11 @@
-import type {
-	FieldType,
-	ILoadOptionsFunctions,
-	INodeListSearchResult,
-	INodePropertyOptions,
-	ResourceMapperField,
-	ResourceMapperFields,
+import {
+	NodeApiError,
+	type FieldType,
+	type ILoadOptionsFunctions,
+	type INodeListSearchResult,
+	type INodePropertyOptions,
+	type ResourceMapperField,
+	type ResourceMapperFields,
 } from 'n8n-workflow';
 
 import { parseScriptAddress, reduckRequest } from './transport';
@@ -79,7 +80,17 @@ export async function getScriptArgs(this: ILoadOptionsFunctions): Promise<Resour
 	const answer = await reduckRequest<Script>(this,
 		'GET',
 		`/api/scripts/${encodeURIComponent(script.handle)}/${encodeURIComponent(script.host)}/${encodeURIComponent(script.slug)}`,
-	);
+	).catch((error: unknown) => {
+		// A thrown error here only hides the form, so a missing script is said where its form would be.
+		if (error instanceof NodeApiError && error.httpCode === '404') return null;
+		throw error;
+	});
+	if (!answer) {
+		return {
+			fields: [],
+			emptyFieldsNotice: `No script at "${script.handle}/${script.host}/${script.slug}" for this account. Pick one from the list, or check the address.`,
+		};
+	}
 	const schema = answer.current_version?.input_schema ?? {};
 	const required = new Set(schema.required ?? []);
 
