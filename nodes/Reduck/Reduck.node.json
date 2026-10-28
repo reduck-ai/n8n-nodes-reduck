@@ -1,0 +1,18 @@
+{
+	"node": "@reduck-ai/n8n-nodes-reduck.reduck",
+	"nodeVersion": "1.0",
+	"codexVersion": "1.0",
+	"categories": ["Development", "Productivity"],
+	"resources": {
+		"credentialDocumentation": [
+			{
+				"url": "https://github.com/reduck-ai/n8n-nodes-reduck#credentials"
+			}
+		],
+		"primaryDocumentation": [
+			{
+				"url": "https://github.com/reduck-ai/n8n-nodes-reduck#readme"
+			}
+		]
+	}
+}
