@@ -37,7 +37,8 @@ export async function searchScripts(
 	filter?: string,
 	paginationToken?: string,
 ): Promise<INodeListSearchResult> {
-	const page = paginationToken ? Number(paginationToken) : 1;
+	// The API counts pages from 0.
+	const page = paginationToken ? Number(paginationToken) : 0;
 	const answer = await reduckRequest<{ data: ScriptSummary[]; has_next_page: boolean }>(this, 'GET', '/api/scripts', {
 		qs: { page, page_size: PAGE_SIZE, ...(filter ? { q: filter } : {}) },
 	});

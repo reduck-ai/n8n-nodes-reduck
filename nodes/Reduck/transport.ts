@@ -1,8 +1,10 @@
-import type {
-	IDataObject,
-	IExecuteFunctions,
-	IHttpRequestMethods,
-	ILoadOptionsFunctions,
+import {
+	NodeApiError,
+	type IDataObject,
+	type IExecuteFunctions,
+	type IHttpRequestMethods,
+	type ILoadOptionsFunctions,
+	type JsonObject,
 } from 'n8n-workflow';
 
 // The one place this package calls Reduck. The credential adds the API key; the base URL comes
@@ -15,12 +17,26 @@ export async function reduckRequest<T>(
 ): Promise<T> {
 	const credentials = await ctx.getCredentials('reduckApi');
 	const baseUrl = String(credentials.baseUrl).replace(/\/+$/, '');
-	return (await ctx.helpers.httpRequestWithAuthentication.call(ctx, 'reduckApi', {
-		method,
-		url: `${baseUrl}${path}`,
-		json: true,
-		...options,
-	})) as T;
+	try {
+		return (await ctx.helpers.httpRequestWithAuthentication.call(ctx, 'reduckApi', {
+			method,
+			url: `${baseUrl}${path}`,
+			json: true,
+			...options,
+		})) as T;
+	} catch (error) {
+		// The API says what went wrong in `{ error }`. n8n's helper has already wrapped the HTTP
+		// error in a NodeApiError with a generic sentence for the status code, so the API's sentence
+		// is read from the original, its `cause`. Not `instanceof NodeApiError`: n8n throws its own
+		// copy of the class, never the one this package imports.
+		const original = (error as { cause?: unknown }).cause ?? error;
+		const answer = (original as { response?: { data?: { error?: unknown } } }).response?.data;
+		throw new NodeApiError(
+			ctx.getNode(),
+			original as JsonObject,
+			typeof answer?.error === 'string' ? { message: answer.error } : {},
+		);
+	}
 }
 
 // A script is addressed as "<handle>/<host>/<slug>", e.g. "reduck/example.com/noop".
