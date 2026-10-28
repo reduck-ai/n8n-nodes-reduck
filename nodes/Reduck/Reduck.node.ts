@@ -153,13 +153,13 @@ export class Reduck implements INodeType {
 				type: 'options',
 				options: [
 					{ name: 'Asia Pacific (Singapore)', value: 'ap-southeast-1' },
-					{ name: 'Default', value: '' },
 					{ name: 'Europe (Frankfurt)', value: 'eu-central-1' },
 					{ name: 'US East', value: 'us-east-1' },
 					{ name: 'US West', value: 'us-west-2' },
 				],
-				default: '',
-				description: 'The datacenter of the managed browser. Choose the one nearest to the site.',
+				default: 'eu-central-1',
+				description:
+					'The datacenter of the managed browser: Europe (Frankfurt) by default. Choose the one nearest to the site.',
 				displayOptions: { show: { resource: ['script'], operation: ['run'], deviceId: [''] } },
 			},
 			{
