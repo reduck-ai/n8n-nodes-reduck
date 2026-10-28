@@ -144,6 +144,34 @@ export class Reduck implements INodeType {
 					'Where the script runs: a Reduck managed browser, or one of your paired browsers. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 				displayOptions: { show: { resource: ['script'], operation: ['run'] } },
 			},
+			// The managed browser's own options. The API refuses them on a paired browser, so they show
+			// only while the managed browser is chosen. The regions are the API's (MANAGED_REGIONS in the
+			// MCP's browser.ts); it refuses any other and names the ones it has.
+			{
+				displayName: 'Region',
+				name: 'region',
+				type: 'options',
+				options: [
+					{ name: 'Asia Pacific (Singapore)', value: 'ap-southeast-1' },
+					{ name: 'Default', value: '' },
+					{ name: 'Europe (Frankfurt)', value: 'eu-central-1' },
+					{ name: 'US East', value: 'us-east-1' },
+					{ name: 'US West', value: 'us-west-2' },
+				],
+				default: '',
+				description: 'The datacenter of the managed browser. Choose the one nearest to the site.',
+				displayOptions: { show: { resource: ['script'], operation: ['run'], deviceId: [''] } },
+			},
+			{
+				displayName: 'Country',
+				name: 'country',
+				type: 'string',
+				default: '',
+				placeholder: 'e.g. FR',
+				description:
+					'The ISO 3166 alpha-2 code of the country the managed browser connects to the site from, through a residential proxy. Use it for a site that changes by country. Leave it empty to connect from the datacenter.',
+				displayOptions: { show: { resource: ['script'], operation: ['run'], deviceId: [''] } },
+			},
 			{
 				displayName: 'Wait for Result',
 				name: 'waitForResult',
@@ -230,13 +258,18 @@ async function runScript(ctx: IExecuteFunctions, i: number): Promise<Run> {
 		Object.entries(form).filter(([, value]) => value !== null && value !== undefined && value !== ''),
 	);
 	const deviceId = ctx.getNodeParameter('deviceId', i, '') as string;
+	const region = ctx.getNodeParameter('region', i, '') as string;
+	const country = (ctx.getNodeParameter('country', i, '') as string).trim();
 	const waitForResult = ctx.getNodeParameter('waitForResult', i, true) as boolean;
 
 	const scriptPath = [script.handle, script.host, script.slug].map(encodeURIComponent).join('/');
 	let run = await reduckRequest<Run>(ctx, 'POST', `/api/scripts/${scriptPath}/runs`, {
 		body: {
 			args,
-			...(deviceId ? { device_id: deviceId } : {}),
+			// A paired browser, or the managed one with its options: never a mix the API refuses.
+			...(deviceId
+				? { device_id: deviceId }
+				: { ...(region ? { region } : {}), ...(country ? { country } : {}) }),
 			wait_seconds: waitForResult ? SERVER_WAIT_SECONDS : 0,
 		},
 	});
