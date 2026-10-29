@@ -11,12 +11,10 @@ import {
 	type JsonObject,
 } from 'n8n-workflow';
 
-import { getDevices, getScriptArgs, searchScripts } from './methods';
-import { parseScriptAddress, REDUCK_URL, reduckRequest, type Run } from './transport';
+import { FILE_FIELD, getDevices, getScriptArgs, searchScripts } from './methods';
+import { parseScriptAddress, reduckRequest, reduckUrl, type Run } from './transport';
 
 const POLL_MS = 2000;
-// What a start waits on the server before it answers. A longer run is then read again here.
-const SERVER_WAIT_SECONDS = 45;
 
 export class Reduck implements INodeType {
 	description: INodeTypeDescription = {
@@ -25,7 +23,7 @@ export class Reduck implements INodeType {
 		icon: { light: 'file:reduck.svg', dark: 'file:reduck.dark.svg' },
 		group: ['transform'],
 		version: 1,
-		subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',
+		subtitle: '={{$parameter["script"].value}}',
 		description: 'Run Reduck browser scripts on any website',
 		defaults: { name: 'Reduck' },
 		usableAsTool: true,
@@ -34,56 +32,12 @@ export class Reduck implements INodeType {
 		credentials: [{ name: 'reduckApi', required: true }],
 		properties: [
 			{
-				displayName: 'Resource',
-				name: 'resource',
-				type: 'options',
-				noDataExpression: true,
-				options: [
-					{ name: 'Script', value: 'script' },
-					{ name: 'Run', value: 'run' },
-				],
-				default: 'script',
-			},
-			{
-				displayName: 'Operation',
-				name: 'operation',
-				type: 'options',
-				noDataExpression: true,
-				displayOptions: { show: { resource: ['script'] } },
-				options: [
-					{
-						name: 'Run',
-						value: 'run',
-						description: 'Run a script and get its result',
-						action: 'Run a script',
-					},
-				],
-				default: 'run',
-			},
-			{
-				displayName: 'Operation',
-				name: 'operation',
-				type: 'options',
-				noDataExpression: true,
-				displayOptions: { show: { resource: ['run'] } },
-				options: [
-					{
-						name: 'Get',
-						value: 'get',
-						description: 'Get a run and its result',
-						action: 'Get a run',
-					},
-				],
-				default: 'get',
-			},
-			{
 				displayName: 'Script',
 				name: 'script',
 				type: 'resourceLocator',
 				default: { mode: 'list', value: '' },
 				required: true,
 				description: 'The script to run',
-				displayOptions: { show: { resource: ['script'], operation: ['run'] } },
 				modes: [
 					{
 						displayName: 'From List',
@@ -129,10 +83,7 @@ export class Reduck implements INodeType {
 						noFieldsError: 'This script takes no arguments',
 					},
 				},
-				displayOptions: {
-					show: { resource: ['script'], operation: ['run'] },
-					hide: { script: [''] },
-				},
+				displayOptions: { hide: { script: [''] } },
 			},
 			{
 				displayName: 'Browser Name or ID',
@@ -142,7 +93,6 @@ export class Reduck implements INodeType {
 				default: '',
 				description:
 					'Where the script runs: a Reduck managed browser, or one of your paired browsers. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
-				displayOptions: { show: { resource: ['script'], operation: ['run'] } },
 			},
 			// The managed browser's own options. The API refuses them on a paired browser, so they show
 			// only while the managed browser is chosen. The regions are the API's (MANAGED_REGIONS in the
@@ -160,7 +110,7 @@ export class Reduck implements INodeType {
 				default: 'eu-central-1',
 				description:
 					'The datacenter of the managed browser: Europe (Frankfurt) by default. Choose the one nearest to the site.',
-				displayOptions: { show: { resource: ['script'], operation: ['run'], deviceId: [''] } },
+				displayOptions: { show: { deviceId: [''] } },
 			},
 			{
 				displayName: 'Country',
@@ -170,36 +120,7 @@ export class Reduck implements INodeType {
 				placeholder: 'e.g. FR',
 				description:
 					'The ISO 3166 alpha-2 code of the country the managed browser connects to the site from, through a residential proxy. Use it for a site that changes by country. Leave it empty to connect from the datacenter.',
-				displayOptions: { show: { resource: ['script'], operation: ['run'], deviceId: [''] } },
-			},
-			{
-				displayName: 'Wait for Result',
-				name: 'waitForResult',
-				type: 'boolean',
-				default: true,
-				description:
-					'Whether to wait until the run finishes. Turn it off to get the run right away and read it later with Run > Get.',
-				displayOptions: { show: { resource: ['script'], operation: ['run'] } },
-			},
-			{
-				displayName: 'Timeout (Seconds)',
-				name: 'timeout',
-				type: 'number',
-				typeOptions: { minValue: 1 },
-				default: 600,
-				description: 'How long to wait for the run before the node fails',
-				displayOptions: {
-					show: { resource: ['script'], operation: ['run'], waitForResult: [true] },
-				},
-			},
-			{
-				displayName: 'Run ID',
-				name: 'runId',
-				type: 'string',
-				default: '',
-				required: true,
-				placeholder: 'e.g. 15783c22-bb29-43a6-956f-7ea3d3852c25',
-				displayOptions: { show: { resource: ['run'], operation: ['get'] } },
+				displayOptions: { show: { deviceId: [''] } },
 			},
 		],
 	};
@@ -216,15 +137,11 @@ export class Reduck implements INodeType {
 
 		for (let i = 0; i < items.length; i++) {
 			try {
-				const resource = this.getNodeParameter('resource', i) as string;
-				const run =
-					resource === 'run'
-						? await getRun(this, this.getNodeParameter('runId', i) as string)
-						: await runScript(this, i);
+				const run = await runScript(this, i);
 				if (run.result && 'error' in run.result) {
 					throw new NodeOperationError(this.getNode(), run.result.error, {
 						itemIndex: i,
-						description: `The run's steps and screenshots: ${REDUCK_URL}/runs/${run.id}`,
+						description: `The run's steps and screenshots: ${await reduckUrl(this)}/runs/${run.id}`,
 					});
 				}
 				out.push({ json: toItem(run), pairedItem: { item: i } });
@@ -242,6 +159,9 @@ export class Reduck implements INodeType {
 	}
 }
 
+// Starts the run and reads it again until it ends. n8n's own workflow timeout bounds the wait.
+// The run request holds for the API's default wait: reduck.ai closes a request held 60 s without
+// an answer, which the API's longest wait passes.
 async function runScript(ctx: IExecuteFunctions, i: number): Promise<Run> {
 	const address = ctx.getNodeParameter('script', i, '', { extractValue: true }) as string;
 	const script = parseScriptAddress(address);
@@ -254,43 +174,40 @@ async function runScript(ctx: IExecuteFunctions, i: number): Promise<Run> {
 	// left out, the script's schema fills in its default or refuses a required argument by name,
 	// where null would be coerced to 0 or "" and pass.
 	const form = (ctx.getNodeParameter('args', i, {}) as { value?: IDataObject | null }).value ?? {};
-	const args = Object.fromEntries(
-		Object.entries(form).filter(([, value]) => value !== null && value !== undefined && value !== ''),
-	);
+	const args: IDataObject = {};
+	const files: IDataObject = {};
+	for (const [key, value] of Object.entries(form)) {
+		if (value === null || value === undefined || value === '') continue;
+		if (!key.startsWith(FILE_FIELD)) {
+			args[key] = value;
+			continue;
+		}
+		const property = String(value);
+		const { mimeType } = ctx.helpers.assertBinaryData(i, property);
+		const bytes = await ctx.helpers.getBinaryDataBuffer(i, property);
+		files[key.slice(FILE_FIELD.length)] = { b64: bytes.toString('base64'), mime: mimeType };
+	}
 	const deviceId = ctx.getNodeParameter('deviceId', i, '') as string;
 	const region = ctx.getNodeParameter('region', i, '') as string;
 	const country = (ctx.getNodeParameter('country', i, '') as string).trim();
-	const waitForResult = ctx.getNodeParameter('waitForResult', i, true) as boolean;
 
 	const scriptPath = [script.handle, script.host, script.slug].map(encodeURIComponent).join('/');
 	let run = await reduckRequest<Run>(ctx, 'POST', `/api/scripts/${scriptPath}/runs`, {
 		body: {
 			args,
+			...(Object.keys(files).length ? { files } : {}),
 			// A paired browser, or the managed one with its options: never a mix the API refuses.
 			...(deviceId
 				? { device_id: deviceId }
 				: { ...(region ? { region } : {}), ...(country ? { country } : {}) }),
-			wait_seconds: waitForResult ? SERVER_WAIT_SECONDS : 0,
 		},
 	});
-	if (!waitForResult) return run;
-
-	const deadline = Date.now() + (ctx.getNodeParameter('timeout', i, 600) as number) * 1000;
 	while (run.finished_at === null) {
-		if (Date.now() > deadline) {
-			throw new NodeOperationError(ctx.getNode(), `The run did not finish in time. Run ID: ${run.id}`, {
-				itemIndex: i,
-				description: 'Read it later with Run > Get, or raise the timeout.',
-			});
-		}
 		await sleep(POLL_MS);
-		run = await getRun(ctx, run.id);
+		run = await reduckRequest<Run>(ctx, 'GET', `/api/runs/${encodeURIComponent(run.id)}`);
 	}
 	return run;
 }
-
-const getRun = (ctx: IExecuteFunctions, runId: string) =>
-	reduckRequest<Run>(ctx, 'GET', `/api/runs/${encodeURIComponent(runId)}`);
 
 // The run, with the script's output as `result` (the API wraps it as { result }).
 const toItem = (run: Run): IDataObject => ({

@@ -14,20 +14,20 @@ On a self-hosted n8n, go to **Settings > Community nodes** and install
 ## Credentials
 
 1. In the Reduck dashboard, open [API keys](https://reduck.ai/api-keys) and create a key.
-2. In n8n, create a **Reduck API** credential and paste the key.
+2. In n8n, create a **Reduck API** credential and paste the key. Keep the default **Reduck URL**.
 
-## Operations
+## Run a script
 
-### Script > Run
-
-Runs a script and returns its result.
+The node runs a script, waits until the run finishes, and returns the run.
 
 - **Script**: pick one from the list (your scripts, your projects' scripts and the official
   catalogue), or give its address, such as `reduck/news.ycombinator.com/top_stories`.
 - **Arguments**: one field for each argument the script takes, read from the script itself.
+- **Files**: a script that takes a file shows one field for each file input, such as
+  `attachment (binary property)`. Write the name of the binary property of the input item that
+  holds the file, for example `data`. The page gets the file with the name of the input. A file can
+  be approximately 3 MB.
 - **Browser**: a Reduck managed browser (the default), or one of your paired browsers.
-- **Wait for Result**: on by default. The node waits until the run finishes, up to **Timeout**.
-  Turn it off to get the run right away, and read it later with **Run > Get**.
 
 The output is the run. `result` holds what the script returned:
 
@@ -44,10 +44,6 @@ The output is the run. `result` holds what the script returned:
 If the script fails, the node fails with the script's message. Turn on **Continue On Fail** to get
 `{ "error": "…" }` instead.
 
-### Run > Get
-
-Reads a run by its ID. Use it after a **Script > Run** with **Wait for Result** turned off.
-
 ## Use it as an AI agent tool
 
 Connect the **Reduck Tool** to an **AI Agent** node. Pick the script, and let the agent fill the
@@ -55,7 +51,6 @@ arguments: select the sparkle icon next to a field, or use `{{ $fromAI('query') 
 
 ## Not supported yet
 
-- Scripts that take a file as input.
 - Running several scripts in one call.
 
 ## Compatibility
