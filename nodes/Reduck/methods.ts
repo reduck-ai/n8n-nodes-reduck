@@ -8,7 +8,11 @@ import {
 	type ResourceMapperFields,
 } from 'n8n-workflow';
 
-import { parseScriptAddress, REDUCK_URL, reduckRequest } from './transport';
+import { parseScriptAddress, reduckRequest, reduckUrl } from './transport';
+
+// A file input's field is keyed apart from the arguments: its value names a binary property of
+// the input item, which the node sends as the file's bytes.
+export const FILE_FIELD = 'file:';
 
 interface ScriptSummary {
 	name: string;
@@ -43,6 +47,7 @@ export async function searchScripts(
 ): Promise<INodeListSearchResult> {
 	// The API counts pages from 0.
 	const page = paginationToken ? Number(paginationToken) : 0;
+	const origin = await reduckUrl(this);
 	const answer = await reduckRequest<{ data: ScriptSummary[]; has_next_page: boolean }>(this, 'GET', '/api/scripts', {
 		qs: { page, page_size: PAGE_SIZE, ...(filter ? { q: filter } : {}) },
 	});
@@ -52,7 +57,7 @@ export async function searchScripts(
 			return {
 				name: `${script.name} (${address})`,
 				value: address,
-				url: `${REDUCK_URL}/explore/scripts/${address}`,
+				url: `${origin}/explore/scripts/${address}`,
 			};
 		}),
 		paginationToken: answer.has_next_page ? String(page + 1) : undefined,
@@ -77,8 +82,8 @@ const fieldType = (property: JsonSchemaProperty): FieldType => {
 	return (type ? FIELD_TYPES[type] : undefined) ?? 'string';
 };
 
-// One field per argument in the script's input schema. A file input is left out: this node does
-// not send files yet.
+// One field per argument in the script's input schema. A file input is a field too, which names
+// the binary property of the input item that holds the file.
 export async function getScriptArgs(this: ILoadOptionsFunctions): Promise<ResourceMapperFields> {
 	const address = this.getCurrentNodeParameter('script', { extractValue: true });
 	const script = parseScriptAddress(typeof address === 'string' ? address : '');
@@ -101,19 +106,21 @@ export async function getScriptArgs(this: ILoadOptionsFunctions): Promise<Resour
 	const schema = answer.current_version?.input_schema ?? {};
 	const required = new Set(schema.required ?? []);
 
-	const fields: ResourceMapperField[] = Object.entries(schema.properties ?? {})
-		.filter(([, property]) => property.format !== 'file')
-		.map(([name, property]) => ({
+	const fields: ResourceMapperField[] = Object.entries(schema.properties ?? {}).map(([name, property]) => {
+		const field = { required: required.has(name), defaultMatch: false, display: true };
+		if (property.format === 'file') {
+			return { ...field, id: `${FILE_FIELD}${name}`, displayName: `${name} (binary property)`, type: 'string' };
+		}
+		return {
+			...field,
 			id: name,
 			displayName: name,
-			required: required.has(name),
-			defaultMatch: false,
-			display: true,
 			type: fieldType(property),
 			...(property.enum
 				? { options: property.enum.map((value) => ({ name: String(value), value: String(value) })) }
 				: {}),
-		}));
+		};
+	});
 	return { fields };
 }
 

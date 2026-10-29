@@ -7,20 +7,27 @@ import {
 	type JsonObject,
 } from 'n8n-workflow';
 
-// Reduck's API and its pages share this origin.
-export const REDUCK_URL = 'https://reduck.ai';
+type Ctx = IExecuteFunctions | ILoadOptionsFunctions;
+
+// The Reduck environment the credential names: its API and its pages share this origin. A
+// credential saved before the URL field existed has none, and means production.
+export async function reduckUrl(ctx: Ctx): Promise<string> {
+	const { url } = await ctx.getCredentials<{ url?: string }>('reduckApi');
+	return (url || 'https://reduck.ai').replace(/\/+$/, '');
+}
 
 // The one place this package calls Reduck. The credential adds the API key.
 export async function reduckRequest<T>(
-	ctx: IExecuteFunctions | ILoadOptionsFunctions,
+	ctx: Ctx,
 	method: IHttpRequestMethods,
 	path: string,
 	options: { body?: IDataObject; qs?: IDataObject } = {},
 ): Promise<T> {
+	const url = `${await reduckUrl(ctx)}${path}`;
 	try {
 		return (await ctx.helpers.httpRequestWithAuthentication.call(ctx, 'reduckApi', {
 			method,
-			url: `${REDUCK_URL}${path}`,
+			url,
 			json: true,
 			...options,
 		})) as T;
