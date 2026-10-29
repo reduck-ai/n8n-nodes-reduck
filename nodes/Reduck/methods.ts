@@ -8,7 +8,7 @@ import {
 	type ResourceMapperFields,
 } from 'n8n-workflow';
 
-import { parseScriptAddress, reduckRequest, reduckUrl } from './transport';
+import { parseScriptAddress, REDUCK_URL, reduckRequest } from './transport';
 
 interface ScriptSummary {
 	name: string;
@@ -46,11 +46,14 @@ export async function searchScripts(
 	const answer = await reduckRequest<{ data: ScriptSummary[]; has_next_page: boolean }>(this, 'GET', '/api/scripts', {
 		qs: { page, page_size: PAGE_SIZE, ...(filter ? { q: filter } : {}) },
 	});
-	const pages = await reduckUrl(this, '/explore/scripts/');
 	return {
 		results: answer.data.map((script) => {
 			const address = `${script.author.handle}/${script.host}/${script.slug}`;
-			return { name: `${script.name} (${address})`, value: address, url: `${pages}${address}` };
+			return {
+				name: `${script.name} (${address})`,
+				value: address,
+				url: `${REDUCK_URL}/explore/scripts/${address}`,
+			};
 		}),
 		paginationToken: answer.has_next_page ? String(page + 1) : undefined,
 	};

@@ -12,7 +12,7 @@ import {
 } from 'n8n-workflow';
 
 import { getDevices, getScriptArgs, searchScripts } from './methods';
-import { parseScriptAddress, reduckRequest, reduckUrl, type Run } from './transport';
+import { parseScriptAddress, REDUCK_URL, reduckRequest, type Run } from './transport';
 
 const POLL_MS = 2000;
 // What a start waits on the server before it answers. A longer run is then read again here.
@@ -96,7 +96,7 @@ export class Reduck implements INodeType {
 						displayName: 'By Address',
 						name: 'address',
 						type: 'string',
-						placeholder: 'e.g. reduck/example.com/noop',
+						placeholder: 'e.g. reduck/news.ycombinator.com/top_stories',
 						hint: 'The owner handle, the site and the script, separated by slashes',
 						validation: [
 							{
@@ -224,7 +224,7 @@ export class Reduck implements INodeType {
 				if (run.result && 'error' in run.result) {
 					throw new NodeOperationError(this.getNode(), run.result.error, {
 						itemIndex: i,
-						description: `The run's steps and screenshots: ${await reduckUrl(this, `/runs/${run.id}`)}`,
+						description: `The run's steps and screenshots: ${REDUCK_URL}/runs/${run.id}`,
 					});
 				}
 				out.push({ json: toItem(run), pairedItem: { item: i } });
