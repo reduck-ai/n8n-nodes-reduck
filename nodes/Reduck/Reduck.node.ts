@@ -15,9 +15,6 @@ import { FILE_FIELD, getDevices, getScriptArgs, searchScripts } from './methods'
 import { parseScriptAddress, reduckRequest, reduckUrl, type Run } from './transport';
 
 const POLL_MS = 2000;
-// The longest the API holds a run request before it answers (RUN_WAIT_SECONDS.max in the app's
-// run.ts). A longer run is then read again here until it ends.
-const SERVER_WAIT_SECONDS = 100;
 
 export class Reduck implements INodeType {
 	description: INodeTypeDescription = {
@@ -163,6 +160,8 @@ export class Reduck implements INodeType {
 }
 
 // Starts the run and reads it again until it ends. n8n's own workflow timeout bounds the wait.
+// The run request holds for the API's default wait: reduck.ai closes a request held 60 s without
+// an answer, which the API's longest wait passes.
 async function runScript(ctx: IExecuteFunctions, i: number): Promise<Run> {
 	const address = ctx.getNodeParameter('script', i, '', { extractValue: true }) as string;
 	const script = parseScriptAddress(address);
@@ -201,7 +200,6 @@ async function runScript(ctx: IExecuteFunctions, i: number): Promise<Run> {
 			...(deviceId
 				? { device_id: deviceId }
 				: { ...(region ? { region } : {}), ...(country ? { country } : {}) }),
-			wait_seconds: SERVER_WAIT_SECONDS,
 		},
 	});
 	while (run.finished_at === null) {
