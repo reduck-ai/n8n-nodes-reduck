@@ -7,25 +7,30 @@ import {
 	type JsonObject,
 } from 'n8n-workflow';
 
-// The Reduck environment the credential names: its API and its pages share this origin.
-export async function reduckUrl(ctx: IExecuteFunctions | ILoadOptionsFunctions, path: string): Promise<string> {
-	const credentials = await ctx.getCredentials('reduckApi');
-	return `${String(credentials.baseUrl).replace(/\/+$/, '')}${path}`;
-}
+// Reduck's API and its pages share this origin.
+export const REDUCK_URL = 'https://reduck.ai';
 
-// The one place this package calls Reduck. The credential adds the API key; the base URL comes
-// from the credential too, so the same node works against any Reduck environment.
+// The credential type the node's Authentication parameter names. A load-options call reads the
+// form being edited; an execution reads the saved node.
+const credentialType = (ctx: IExecuteFunctions | ILoadOptionsFunctions): string => {
+	const authentication =
+		'getCurrentNodeParameter' in ctx
+			? ctx.getCurrentNodeParameter('authentication')
+			: ctx.getNodeParameter('authentication', 0);
+	return authentication === 'apiKey' ? 'reduckApi' : 'reduckOAuth2Api';
+};
+
+// The one place this package calls Reduck. The credential adds the API key or the OAuth token.
 export async function reduckRequest<T>(
 	ctx: IExecuteFunctions | ILoadOptionsFunctions,
 	method: IHttpRequestMethods,
 	path: string,
 	options: { body?: IDataObject; qs?: IDataObject } = {},
 ): Promise<T> {
-	const url = await reduckUrl(ctx, path);
 	try {
-		return (await ctx.helpers.httpRequestWithAuthentication.call(ctx, 'reduckApi', {
+		return (await ctx.helpers.httpRequestWithAuthentication.call(ctx, credentialType(ctx), {
 			method,
-			url,
+			url: `${REDUCK_URL}${path}`,
 			json: true,
 			...options,
 		})) as T;
@@ -44,7 +49,7 @@ export async function reduckRequest<T>(
 	}
 }
 
-// A script is addressed as "<handle>/<host>/<slug>", e.g. "reduck/example.com/noop".
+// A script is addressed as "<handle>/<host>/<slug>", e.g. "reduck/news.ycombinator.com/top_stories".
 export function parseScriptAddress(address: string): { handle: string; host: string; slug: string } | null {
 	const [handle, host, slug, ...rest] = address.trim().split('/');
 	if (!handle || !host || !slug || rest.length) return null;

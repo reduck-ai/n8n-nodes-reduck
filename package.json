@@ -36,7 +36,8 @@
 		"n8nNodesApiVersion": 1,
 		"strict": true,
 		"credentials": [
-			"dist/credentials/ReduckApi.credentials.js"
+			"dist/credentials/ReduckApi.credentials.js",
+			"dist/credentials/ReduckOAuth2Api.credentials.js"
 		],
 		"nodes": [
 			"dist/nodes/Reduck/Reduck.node.js"

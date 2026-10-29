@@ -15,10 +15,12 @@ On a self-hosted n8n you can also go to **Settings > Community nodes** and insta
 
 ## Credentials
 
-1. In the Reduck dashboard, open [API keys](https://reduck.ai/api-keys) and create a key.
-2. In n8n, create a **Reduck API** credential and paste the key.
+Choose one in the node's **Authentication** field:
 
-Leave **Base URL** and **Vercel Protection Bypass Token** as they are. Change them only to use another Reduck environment.
+- **OAuth2** (the default): create a **Reduck OAuth2 API** credential and select **Connect**.
+  Sign in to Reduck and approve n8n. There is no client ID or secret to enter.
+- **API Key**: in the Reduck dashboard, open [API keys](https://reduck.ai/api-keys) and create a key.
+  Then create a **Reduck API** credential in n8n and paste the key.
 
 ## Operations
 
@@ -27,7 +29,7 @@ Leave **Base URL** and **Vercel Protection Bypass Token** as they are. Change th
 Runs a script and returns its result.
 
 - **Script**: pick one from the list (your scripts, your projects' scripts and the official
-  catalogue), or give its address, such as `reduck/example.com/noop`.
+  catalogue), or give its address, such as `reduck/news.ycombinator.com/top_stories`.
 - **Arguments**: one field for each argument the script takes, read from the script itself.
 - **Browser**: a Reduck managed browser (the default), or one of your paired browsers.
 - **Wait for Result**: on by default. The node waits until the run finishes, up to **Timeout**.

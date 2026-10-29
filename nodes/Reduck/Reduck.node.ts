@@ -12,7 +12,7 @@ import {
 } from 'n8n-workflow';
 
 import { getDevices, getScriptArgs, searchScripts } from './methods';
-import { parseScriptAddress, reduckRequest, reduckUrl, type Run } from './transport';
+import { parseScriptAddress, REDUCK_URL, reduckRequest, type Run } from './transport';
 
 const POLL_MS = 2000;
 // What a start waits on the server before it answers. A longer run is then read again here.
@@ -31,8 +31,29 @@ export class Reduck implements INodeType {
 		usableAsTool: true,
 		inputs: [NodeConnectionTypes.Main],
 		outputs: [NodeConnectionTypes.Main],
-		credentials: [{ name: 'reduckApi', required: true }],
+		credentials: [
+			{
+				name: 'reduckOAuth2Api',
+				required: true,
+				displayOptions: { show: { authentication: ['oAuth2'] } },
+			},
+			{
+				name: 'reduckApi',
+				required: true,
+				displayOptions: { show: { authentication: ['apiKey'] } },
+			},
+		],
 		properties: [
+			{
+				displayName: 'Authentication',
+				name: 'authentication',
+				type: 'options',
+				options: [
+					{ name: 'OAuth2', value: 'oAuth2' },
+					{ name: 'API Key', value: 'apiKey' },
+				],
+				default: 'oAuth2',
+			},
 			{
 				displayName: 'Resource',
 				name: 'resource',
@@ -96,7 +117,7 @@ export class Reduck implements INodeType {
 						displayName: 'By Address',
 						name: 'address',
 						type: 'string',
-						placeholder: 'e.g. reduck/example.com/noop',
+						placeholder: 'e.g. reduck/news.ycombinator.com/top_stories',
 						hint: 'The owner handle, the site and the script, separated by slashes',
 						validation: [
 							{
@@ -224,7 +245,7 @@ export class Reduck implements INodeType {
 				if (run.result && 'error' in run.result) {
 					throw new NodeOperationError(this.getNode(), run.result.error, {
 						itemIndex: i,
-						description: `The run's steps and screenshots: ${await reduckUrl(this, `/runs/${run.id}`)}`,
+						description: `The run's steps and screenshots: ${REDUCK_URL}/runs/${run.id}`,
 					});
 				}
 				out.push({ json: toItem(run), pairedItem: { item: i } });
