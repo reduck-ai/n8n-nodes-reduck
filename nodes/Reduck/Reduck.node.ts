@@ -29,8 +29,31 @@ export class Reduck implements INodeType {
 		usableAsTool: true,
 		inputs: [NodeConnectionTypes.Main],
 		outputs: [NodeConnectionTypes.Main],
-		credentials: [{ name: 'reduckApi', required: true }],
+		credentials: [
+			{
+				name: 'reduckApi',
+				required: true,
+				displayOptions: { show: { authentication: ['apiKey'] } },
+			},
+			{
+				name: 'reduckOAuth2Api',
+				required: true,
+				displayOptions: { show: { authentication: ['oAuth2'] } },
+			},
+		],
 		properties: [
+			// API Key is the default because a node saved before OAuth2 existed has no value here,
+			// and it must keep the credential it was saved with.
+			{
+				displayName: 'Authentication',
+				name: 'authentication',
+				type: 'options',
+				options: [
+					{ name: 'API Key', value: 'apiKey' },
+					{ name: 'OAuth2', value: 'oAuth2' },
+				],
+				default: 'apiKey',
+			},
 			{
 				displayName: 'Script',
 				name: 'script',

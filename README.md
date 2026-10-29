@@ -13,8 +13,13 @@ On a self-hosted n8n, go to **Settings > Community nodes** and install
 
 ## Credentials
 
-1. In the Reduck dashboard, open [API keys](https://reduck.ai/api-keys) and create a key.
-2. In n8n, create a **Reduck API** credential and paste the key. Keep the default **Reduck URL**.
+Choose one in the node's **Authentication** field:
+
+- **API Key** (the default): in the Reduck dashboard, open [API keys](https://reduck.ai/api-keys)
+  and create a key. Then create a **Reduck API** credential in n8n and paste the key. Keep the
+  default **Reduck URL**.
+- **OAuth2**: create a **Reduck OAuth2 API** credential and select **Connect**. Sign in to Reduck
+  and approve n8n. There is no client ID or secret to enter.
 
 ## Run a script
 

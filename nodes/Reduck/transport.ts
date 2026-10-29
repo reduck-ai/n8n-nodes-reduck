@@ -9,14 +9,27 @@ import {
 
 type Ctx = IExecuteFunctions | ILoadOptionsFunctions;
 
-// The Reduck environment the credential names: its API and its pages share this origin. A
-// credential saved before the URL field existed has none, and means production.
+// The credential the node's Authentication field names. A dropdown reads the form being edited;
+// an execution reads the saved node.
+const credentialOf = (ctx: Ctx): string => {
+	const authentication =
+		'getCurrentNodeParameter' in ctx
+			? ctx.getCurrentNodeParameter('authentication')
+			: ctx.getNodeParameter('authentication', 0);
+	return authentication === 'oAuth2' ? 'reduckOAuth2Api' : 'reduckApi';
+};
+
+// The Reduck environment the credential names: its API and its pages share this origin. The API
+// key credential has a URL field; the OAuth2 one signs in at its server URL. A credential saved
+// before the URL field existed has neither, and means production.
 export async function reduckUrl(ctx: Ctx): Promise<string> {
-	const { url } = await ctx.getCredentials<{ url?: string }>('reduckApi');
-	return (url || 'https://reduck.ai').replace(/\/+$/, '');
+	const { url, serverUrl } = await ctx.getCredentials<{ url?: string; serverUrl?: string }>(
+		credentialOf(ctx),
+	);
+	return (url || serverUrl || 'https://reduck.ai').replace(/\/+$/, '');
 }
 
-// The one place this package calls Reduck. The credential adds the API key.
+// The one place this package calls Reduck. The credential adds the API key or the OAuth token.
 export async function reduckRequest<T>(
 	ctx: Ctx,
 	method: IHttpRequestMethods,
@@ -25,7 +38,7 @@ export async function reduckRequest<T>(
 ): Promise<T> {
 	const url = `${await reduckUrl(ctx)}${path}`;
 	try {
-		return (await ctx.helpers.httpRequestWithAuthentication.call(ctx, 'reduckApi', {
+		return (await ctx.helpers.httpRequestWithAuthentication.call(ctx, credentialOf(ctx), {
 			method,
 			url,
 			json: true,
