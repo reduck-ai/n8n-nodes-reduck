@@ -8,17 +8,13 @@ as tools.
 
 ## Install
 
-In n8n, open the nodes panel, search for **Reduck**, and select **Install**.
-
-On a self-hosted n8n you can also go to **Settings > Community nodes** and install
+On a self-hosted n8n, go to **Settings > Community nodes** and install
 `@reduck-ai/n8n-nodes-reduck`. See the [n8n guide](https://docs.n8n.io/integrations/community-nodes/installation/).
 
 ## Credentials
 
 1. In the Reduck dashboard, open [API keys](https://reduck.ai/api-keys) and create a key.
 2. In n8n, create a **Reduck API** credential and paste the key.
-
-Leave **Base URL** and **Vercel Protection Bypass Token** as they are. Change them only to use another Reduck environment.
 
 ## Operations
 
@@ -27,7 +23,7 @@ Leave **Base URL** and **Vercel Protection Bypass Token** as they are. Change th
 Runs a script and returns its result.
 
 - **Script**: pick one from the list (your scripts, your projects' scripts and the official
-  catalogue), or give its address, such as `reduck/example.com/noop`.
+  catalogue), or give its address, such as `reduck/news.ycombinator.com/top_stories`.
 - **Arguments**: one field for each argument the script takes, read from the script itself.
 - **Browser**: a Reduck managed browser (the default), or one of your paired browsers.
 - **Wait for Result**: on by default. The node waits until the run finishes, up to **Timeout**.
