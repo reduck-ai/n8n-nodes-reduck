@@ -124,10 +124,16 @@ export async function getScriptArgs(this: ILoadOptionsFunctions): Promise<Resour
 	return { fields };
 }
 
-// Where a run can happen: a Reduck managed browser, or one of the account's paired browsers.
+// The API's own name for the account's paired browser, sent as the run's `browser`: the API picks
+// it, and refuses by name when there is none or several, listing them.
+export const PAIRED_BROWSER = 'extension';
+
+// Where a run can happen: the account's paired browser, one of them by name, or a Reduck managed
+// browser.
 export async function getDevices(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
 	const devices = await reduckRequest<Array<{ id: string; name: string | null }>>(this, 'GET', '/api/devices');
 	return [
+		{ name: 'My Paired Browser', value: PAIRED_BROWSER },
 		{ name: 'Reduck Managed Browser', value: '' },
 		...devices.map((device) => ({ name: device.name ?? device.id, value: device.id })),
 	];

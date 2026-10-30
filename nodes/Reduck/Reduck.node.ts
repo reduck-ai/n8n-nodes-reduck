@@ -11,7 +11,7 @@ import {
 	type JsonObject,
 } from 'n8n-workflow';
 
-import { FILE_FIELD, getDevices, getScriptArgs, searchScripts } from './methods';
+import { FILE_FIELD, PAIRED_BROWSER, getDevices, getScriptArgs, searchScripts } from './methods';
 import { parseScriptAddress, reduckRequest, reduckUrl, type Run } from './transport';
 
 const POLL_MS = 2000;
@@ -120,6 +120,8 @@ export class Reduck implements INodeType {
 				},
 				displayOptions: { hide: { script: [''] } },
 			},
+			// Version 1 runs on the managed browser by default, which its saved nodes keep (see
+			// Authentication). From 1.1 on, a node starts on the account's paired browser.
 			{
 				displayName: 'Browser Name or ID',
 				name: 'deviceId',
@@ -127,7 +129,18 @@ export class Reduck implements INodeType {
 				typeOptions: { loadOptionsMethod: 'getDevices' },
 				default: '',
 				description:
-					'Where the script runs: a Reduck managed browser, or one of your paired browsers. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+					'Where the script runs: your paired browser (the Reduck extension), one of them by name when you have several, or a Reduck managed browser. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+				displayOptions: { show: { '@version': [1] } },
+			},
+			{
+				displayName: 'Browser Name or ID',
+				name: 'deviceId',
+				type: 'options',
+				typeOptions: { loadOptionsMethod: 'getDevices' },
+				default: PAIRED_BROWSER,
+				description:
+					'Where the script runs: your paired browser (the Reduck extension), one of them by name when you have several, or a Reduck managed browser. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+				displayOptions: { show: { '@version': [{ _cnd: { gte: 1.1 } }] } },
 			},
 			// The managed browser's own options. The API refuses them on a paired browser, so they show
 			// only while the managed browser is chosen. The regions are the API's (MANAGED_REGIONS in the
@@ -232,9 +245,11 @@ async function runScript(ctx: IExecuteFunctions, i: number): Promise<Run> {
 			args,
 			...(Object.keys(files).length ? { files } : {}),
 			// A paired browser, or the managed one with its options: never a mix the API refuses.
-			...(deviceId
-				? { device_id: deviceId }
-				: { ...(region ? { region } : {}), ...(country ? { country } : {}) }),
+			...(deviceId === PAIRED_BROWSER
+				? { browser: PAIRED_BROWSER }
+				: deviceId
+					? { device_id: deviceId }
+					: { ...(region ? { region } : {}), ...(country ? { country } : {}) }),
 		},
 	});
 	while (run.finished_at === null) {
