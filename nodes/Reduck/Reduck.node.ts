@@ -16,13 +16,18 @@ import { parseScriptAddress, reduckRequest, reduckUrl, type Run } from './transp
 
 const POLL_MS = 2000;
 
+const AUTHENTICATIONS = [
+	{ name: 'OAuth2', value: 'oAuth2' },
+	{ name: 'API Key', value: 'apiKey' },
+];
+
 export class Reduck implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'Reduck',
 		name: 'reduck',
 		icon: { light: 'file:reduck.svg', dark: 'file:reduck.dark.svg' },
 		group: ['transform'],
-		version: 1,
+		version: [1, 1.1],
 		subtitle: '={{$parameter["script"].value}}',
 		description: 'Run Reduck browser scripts on any website',
 		defaults: { name: 'Reduck' },
@@ -42,17 +47,24 @@ export class Reduck implements INodeType {
 			},
 		],
 		properties: [
-			// API Key is the default because a node saved before OAuth2 existed has no value here,
-			// and it must keep the credential it was saved with.
+			// n8n saves no parameter that equals its default, so a node saved with the default holds no
+			// value here and reads whatever the default is now. Version 1 keeps API Key for those
+			// nodes; a node added from 1.1 on starts with OAuth2.
 			{
 				displayName: 'Authentication',
 				name: 'authentication',
 				type: 'options',
-				options: [
-					{ name: 'API Key', value: 'apiKey' },
-					{ name: 'OAuth2', value: 'oAuth2' },
-				],
+				options: AUTHENTICATIONS,
 				default: 'apiKey',
+				displayOptions: { show: { '@version': [1] } },
+			},
+			{
+				displayName: 'Authentication',
+				name: 'authentication',
+				type: 'options',
+				options: AUTHENTICATIONS,
+				default: 'oAuth2',
+				displayOptions: { show: { '@version': [{ _cnd: { gte: 1.1 } }] } },
 			},
 			{
 				displayName: 'Script',
