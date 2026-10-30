@@ -54,6 +54,12 @@ If the script fails, the node fails with the script's message. Turn on **Continu
 Connect the **Reduck Tool** to an **AI Agent** node. Pick the script, and let the agent fill the
 arguments: select the sparkle icon next to a field, or use `{{ $fromAI('query') }}`.
 
+## Examples
+
+Import a workflow from [examples](examples) (**Workflows > Import from File**), then select your Reduck credential in its Reduck node.
+
+- [Does ChatGPT cite your brand?](examples/chatgpt-brand-visibility.json): every morning, asks ChatGPT your buyers' questions in the ChatGPT app and records whether the answer cites your site, names you, or cites others. The rows go to an n8n data table.
+
 ## Not supported yet
 
 - Running several scripts in one call.

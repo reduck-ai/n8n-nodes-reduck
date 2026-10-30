@@ -1,0 +1,257 @@
+{
+	"name": "Does ChatGPT cite your brand? (Reduck)",
+	"nodes": [
+		{
+			"parameters": {
+				"content": "## Does ChatGPT cite your brand?\n\nEvery morning, this asks ChatGPT your buyers' questions in the ChatGPT app, with its web search, as a buyer sees it. Each answer gets a verdict:\n\n- **cited**: the answer links a page of your site\n- **named**: it names you, with no link to your site\n- **absent**: it searched the web, and cited and named others\n- **no search**: it answered from memory. No page can win this answer: the wording of the question decides it\n\n`cited_domains` shows who was cited instead: these are the pages to beat. One answer is noisy, so read the trend over several days.\n\nThe OpenAI API cannot do this: it does not answer like the app, and it does not show its citations.\n\n### Setup\n1. Create a **Reduck API** credential with a key from https://reduck.ai/api-keys\n2. Set your brand and your questions in **Your brand and questions**\n3. Click **Try it now**. The rows go to the data table `chatgpt_visibility`.\n\nEach question is 1 Reduck run a day, on a Reduck browser that is signed out of ChatGPT. You install nothing.",
+				"height": 560,
+				"width": 440
+			},
+			"id": "b1f0e6a4-0c1e-4c39-9d63-1a7f2e5c0001",
+			"name": "About",
+			"type": "n8n-nodes-base.stickyNote",
+			"typeVersion": 1,
+			"position": [
+				-620,
+				-220
+			]
+		},
+		{
+			"parameters": {
+				"rule": {
+					"interval": [
+						{
+							"triggerAtHour": 9
+						}
+					]
+				}
+			},
+			"id": "b1f0e6a4-0c1e-4c39-9d63-1a7f2e5c0002",
+			"name": "Every morning at 9",
+			"type": "n8n-nodes-base.scheduleTrigger",
+			"typeVersion": 1.2,
+			"position": [
+				0,
+				-100
+			]
+		},
+		{
+			"parameters": {},
+			"id": "b1f0e6a4-0c1e-4c39-9d63-1a7f2e5c0003",
+			"name": "Try it now",
+			"type": "n8n-nodes-base.manualTrigger",
+			"typeVersion": 1,
+			"position": [
+				0,
+				100
+			]
+		},
+		{
+			"parameters": {
+				"resource": "table",
+				"operation": "create",
+				"tableName": "chatgpt_visibility",
+				"columns": {
+					"column": [
+						{
+							"name": "date",
+							"type": "string"
+						},
+						{
+							"name": "question",
+							"type": "string"
+						},
+						{
+							"name": "verdict",
+							"type": "string"
+						},
+						{
+							"name": "cited_domains",
+							"type": "string"
+						},
+						{
+							"name": "answer",
+							"type": "string"
+						},
+						{
+							"name": "run",
+							"type": "string"
+						}
+					]
+				},
+				"options": {
+					"createIfNotExists": true
+				}
+			},
+			"id": "b1f0e6a4-0c1e-4c39-9d63-1a7f2e5c0004",
+			"name": "Create the table if missing",
+			"type": "n8n-nodes-base.dataTable",
+			"typeVersion": 1.1,
+			"position": [
+				220,
+				0
+			]
+		},
+		{
+			"parameters": {
+				"jsCode": "// Your brand: the names an answer may use, and your domain (its subdomains count too).\nconst names = ['Reduck'];\nconst domain = 'reduck.ai';\n\n// The questions your buyers ask, in their own words.\nconst questions = [\n  'What is the best tool to automate LinkedIn from n8n?',\n  'How can an AI agent use a website that has no API?',\n  'What are the alternatives to Apify for scraping LinkedIn?',\n];\n\nreturn questions.map((question) => ({ json: { question, names, domain } }));"
+			},
+			"id": "b1f0e6a4-0c1e-4c39-9d63-1a7f2e5c0005",
+			"name": "Your brand and questions",
+			"type": "n8n-nodes-base.code",
+			"typeVersion": 2,
+			"position": [
+				440,
+				0
+			]
+		},
+		{
+			"parameters": {
+				"script": {
+					"__rl": true,
+					"mode": "address",
+					"value": "reduck/chatgpt.com/ask"
+				},
+				"args": {
+					"mappingMode": "defineBelow",
+					"value": {
+						"question": "={{ $json.question }}"
+					},
+					"matchingColumns": [],
+					"schema": [
+						{
+							"id": "question",
+							"displayName": "question",
+							"required": true,
+							"defaultMatch": false,
+							"display": true,
+							"type": "string",
+							"canBeUsedToMatch": false
+						}
+					]
+				},
+				"deviceId": "",
+				"region": "us-east-1",
+				"country": ""
+			},
+			"id": "b1f0e6a4-0c1e-4c39-9d63-1a7f2e5c0006",
+			"name": "Ask ChatGPT",
+			"type": "@reduck-ai/n8n-nodes-reduck.reduck",
+			"typeVersion": 1,
+			"position": [
+				660,
+				0
+			],
+			"onError": "continueRegularOutput"
+		},
+		{
+			"parameters": {
+				"mode": "runOnceForEachItem",
+				"jsCode": "const { question, names, domain } = $('Your brand and questions').item.json;\nconst answer = $json.result?.answer ?? '';\nconst references = $json.result?.references ?? [];\n// The progress lines ChatGPT showed (\"Searching the web\"): none means it answered from memory.\nconst searched = ($json.result?.activity ?? []).length > 0 || references.length > 0;\n\n// The Code sandbox has no URL global, so the host is read with a pattern.\nconst hostOf = (url) => /^https?:\\/\\/(?:www\\.)?([^/?#:]+)/i.exec(url ?? '')?.[1]?.toLowerCase();\n// Anchored on a dot, so notreduck.ai is not reduck.ai.\nconst ours = (host) => host === domain || host.endsWith(`.${domain}`);\nconst cited = [...new Set(references.map((r) => hostOf(r.url)).filter(Boolean))];\nconst named = names.some((n) => answer.toLowerCase().includes(n.toLowerCase()));\n\nconst verdict = $json.error\n  ? 'failed'\n  : cited.some(ours)\n    ? 'cited'\n    : named\n      ? 'named'\n      : searched\n        ? 'absent'\n        : 'no search';\n\nreturn {\n  json: {\n    date: new Date().toISOString().slice(0, 10),\n    question,\n    verdict,\n    cited_domains: cited.filter((h) => !ours(h)).join(', '),\n    answer: $json.error ?? answer,\n    run: $json.id ? `https://reduck.ai/runs/${$json.id}` : '',\n  },\n};"
+			},
+			"id": "b1f0e6a4-0c1e-4c39-9d63-1a7f2e5c0007",
+			"name": "Verdict",
+			"type": "n8n-nodes-base.code",
+			"typeVersion": 2,
+			"position": [
+				880,
+				0
+			]
+		},
+		{
+			"parameters": {
+				"operation": "insert",
+				"dataTableId": {
+					"__rl": true,
+					"mode": "name",
+					"value": "chatgpt_visibility"
+				},
+				"columns": {
+					"mappingMode": "autoMapInputData",
+					"value": null
+				},
+				"options": {}
+			},
+			"id": "b1f0e6a4-0c1e-4c39-9d63-1a7f2e5c0008",
+			"name": "Save",
+			"type": "n8n-nodes-base.dataTable",
+			"typeVersion": 1.1,
+			"position": [
+				1100,
+				0
+			]
+		}
+	],
+	"connections": {
+		"Every morning at 9": {
+			"main": [
+				[
+					{
+						"node": "Create the table if missing",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Try it now": {
+			"main": [
+				[
+					{
+						"node": "Create the table if missing",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Create the table if missing": {
+			"main": [
+				[
+					{
+						"node": "Your brand and questions",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Your brand and questions": {
+			"main": [
+				[
+					{
+						"node": "Ask ChatGPT",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Ask ChatGPT": {
+			"main": [
+				[
+					{
+						"node": "Verdict",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Verdict": {
+			"main": [
+				[
+					{
+						"node": "Save",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		}
+	},
+	"settings": {
+		"executionOrder": "v1"
+	},
+	"pinData": {}
+}
