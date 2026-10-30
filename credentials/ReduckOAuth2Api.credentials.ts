@@ -15,7 +15,7 @@ export class ReduckOAuth2Api implements ICredentialType {
 		dark: 'file:../nodes/Reduck/reduck.dark.svg',
 	};
 
-	documentationUrl = 'https://github.com/reduck-ai/n8n-nodes-reduck#credentials';
+	documentationUrl = 'https://docs.reduck.ai/n8n/#credentials';
 
 	properties: INodeProperties[] = [
 		{
