@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://cdn.reduck.ai/logo-full-white.png" />
+    <img src="https://cdn.reduck.ai/logo-full-dark.png" alt="Reduck" width="300" />
+  </picture>
+</p>
+
 # @reduck-ai/n8n-nodes-reduck
 
 The official [Reduck](https://reduck.ai) node for [n8n](https://n8n.io).
@@ -10,6 +17,8 @@ as tools.
 
 On a self-hosted n8n, go to **Settings > Community nodes** and install
 `@reduck-ai/n8n-nodes-reduck`. See the [n8n guide](https://docs.n8n.io/integrations/community-nodes/installation/).
+
+Where you cannot install it, use the [MCP Client Tool](#without-the-node-the-mcp-client-tool) instead.
 
 ## Credentials
 
@@ -33,6 +42,9 @@ The node runs a script, waits until the run finishes, and returns the run.
   holds the file, for example `data`. The page gets the file with the name of the input. A file can
   be approximately 3 MB.
 - **Browser**: a Reduck managed browser (the default), or one of your paired browsers.
+- **Region** and **Country**: for the managed browser only. Region is the datacenter the browser
+  runs in. Country connects to the site from that country through a residential proxy, for a site
+  that changes by country.
 
 The output is the run. `result` holds what the script returned:
 
@@ -56,9 +68,31 @@ arguments: select the sparkle icon next to a field, or use `{{ $fromAI('query') 
 
 ## Examples
 
-Import a workflow from [examples](examples) (**Workflows > Import from File**), then select your Reduck credential in its Reduck node.
+Import a workflow from [examples](https://github.com/reduck-ai/n8n-nodes-reduck/tree/main/examples)
+(**Workflows > Import from File**), then select your Reduck credential in its Reduck node.
 
-- [Does ChatGPT cite your brand?](examples/chatgpt-brand-visibility.json): every morning, asks ChatGPT your buyers' questions in the ChatGPT app and records whether the answer cites your site, names you, or cites others. The rows go to an n8n data table.
+- [Does ChatGPT cite your brand?](https://github.com/reduck-ai/n8n-nodes-reduck/blob/main/examples/chatgpt-brand-visibility.json):
+  every morning, asks ChatGPT your buyers' questions in the ChatGPT app and records whether the
+  answer cites your site, names you, or cites others. The rows go to an n8n data table.
+
+## Without the node: the MCP Client Tool
+
+n8n Cloud installs only the community nodes that n8n has verified. Where you cannot install this
+node, give an AI Agent the Reduck tools with n8n's own **MCP Client Tool** node:
+
+1. On the **Tool** connector of an **AI Agent** node, add an **MCP Client Tool** node.
+2. Set **Endpoint URL** to `https://mcp.reduck.ai` and **Server Transport** to
+   **HTTP Streamable**.
+3. Set **Authentication** to **Header Auth**, with a credential whose name is `X-API-Key` and
+   whose value is your [Reduck API key](https://reduck.ai/api-keys).
+4. In **Options > Timeout**, write `300000` (five minutes). The default of one minute is not
+   sufficient: a script opens a real browser and loads a real page.
+5. Set **Include Tools** to **Selected**, and select `list_scripts`, `read_script` and
+   `run_script`. The other tools are for writing scripts, and an agent that only runs scripts
+   does better with fewer tools.
+
+To make sure that it works, ask the agent to run `whoami`. It tells you the Reduck account the
+key belongs to.
 
 ## Not supported yet
 
