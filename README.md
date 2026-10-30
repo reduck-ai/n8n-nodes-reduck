@@ -5,12 +5,26 @@
   </picture>
 </p>
 
-# Official [Reduck](https://reduck.ai) node for [n8n](https://n8n.io).
+# Official [Reduck](https://reduck.ai) node for [n8n](https://n8n.io)
 
-Reduck enables Agents to write, run and maintain browser automation scripts to automate sites with no API, such as LinkedIn, WhatsApp, Reddit, etc.
+n8n is a powerful automation framework but faces key challenges:
 
-With Reduck n8n node, users can run scripts from our library or custom writen ones to automate workflows such as:
-- 
+- **No API exists**, e.g. Facebook groups have none since 2024.
+- **Hard to get APIs**, e.g. Reddit gives an API key only after reviewing applications.
+- **Inadequate APIs**, e.g. Facebook's API reads only Pages you manage.
+- **Hard to set up credentials**, e.g. Google requires you to make an OAuth app first.
+
+Reduck solves this by making it easy to write browser automation scripts with Agents, thanks to Reduck MCP, and then run them within n8n.
+
+A script runs in your own browser (the Reduck extension), where you are signed in, or in a
+Reduck managed browser. For example, workflows with Reduck can:
+
+- Find LinkedIn profiles and send connection requests.
+- Read and post in Facebook groups.
+- Search Reddit and read every comment of a thread.
+
+You can run scripts from the [Reduck library](https://reduck.ai/explore), or from ones you create yourself for custom integrations (see
+[Building your own script](#building-your-own-script-and-using-it)).
 
 ## Requirements
 
@@ -52,7 +66,3 @@ Import a workflow from [examples](https://github.com/reduck-ai/n8n-nodes-reduck/
 - [Does ChatGPT cite your brand?](https://github.com/reduck-ai/n8n-nodes-reduck/blob/main/examples/chatgpt-brand-visibility.json):
   every morning, asks ChatGPT your buyers' questions in the ChatGPT app and records whether the
   answer cites your site, names you, or cites others. The rows go to an n8n data table.
-
-## Features
-
-## Building your own script and using it
