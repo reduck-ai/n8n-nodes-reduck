@@ -28,14 +28,17 @@ You can run scripts from the [Reduck library](https://reduck.ai/explore), or fro
 
 ## Requirements
 
-- An [n8n](https://docs.n8n.io/hosting/) instance where you can install community nodes. The
-  [quick start from the command line](#quick-start-from-the-command-line) needs n8n 2 or later.
+- An [n8n](https://docs.n8n.io/hosting/) instance where you can install community nodes.
 - A [Reduck account](https://reduck.ai/#signin).
 - The [Reduck extension](https://chromewebstore.google.com/detail/reduck/koccidjchcojlmgkdhibpgjbnhcoopio),
   paired with your account (see [pairing](https://docs.reduck.ai/#quick-start)). Scripts run on
   this browser by default. To run without it, set **Browser** to **Reduck Managed Browser**.
 
 ## Quick start
+
+<!-- tabs -->
+
+### n8n editor
 
 1. **Install the node**, then restart n8n:
 
@@ -60,7 +63,7 @@ You can run scripts from the [Reduck library](https://reduck.ai/explore), or fro
 
    ![The Reduck node after Execute step: the run succeeded, and result lists the stories](https://raw.githubusercontent.com/reduck-ai/n8n-nodes-reduck/main/images/quick-start-run.png)
 
-## Quick start from the command line
+### Command line
 
 The same result with no clicks, for example from a script or an AI agent. You need n8n 2 or
 later, and an API key from [API keys](https://reduck.ai/api-keys). The workflow runs on a Reduck
@@ -103,6 +106,8 @@ published workflows when it starts.
    The answer is the run. `result` holds the 10 top stories, and `id` links to the run's steps
    and screenshots at `https://reduck.ai/runs/<id>`.
 
+<!-- /tabs -->
+
 ## Examples
 
 Import a workflow from [examples](https://github.com/reduck-ai/n8n-nodes-reduck/tree/main/examples)
@@ -112,8 +117,8 @@ Import a workflow from [examples](https://github.com/reduck-ai/n8n-nodes-reduck/
   every morning, asks ChatGPT your buyers' questions in the ChatGPT app and records whether the
   answer cites your site, names you, or cites others. The rows go to an n8n data table.
 - [Top Hacker News stories, on a webhook](https://github.com/reduck-ai/n8n-nodes-reduck/blob/main/examples/hacker-news-webhook.json):
-  answers `GET /webhook/hacker-news` with the front page as JSON. The
-  [quick start from the command line](#quick-start-from-the-command-line) uses it.
+  answers `GET /webhook/hacker-news` with the front page as JSON. The command-line
+  [quick start](#quick-start) uses it.
 
 ## FAQ
 
