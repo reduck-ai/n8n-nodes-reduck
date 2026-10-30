@@ -9,62 +9,42 @@
 
 The official [Reduck](https://reduck.ai) node for [n8n](https://n8n.io).
 
-Reduck turns what you do on a website into a reusable script: search LinkedIn, read an inbox,
-fill a form. This node runs those scripts in your n8n workflows, and lets an n8n AI agent run them
-as tools.
+Reduck enables Agents to write, run and maintain browser automation scripts to automate sites with no API, such as LinkedIn, WhatsApp, Reddit, etc.
 
-## Install
+With Reduck n8n node, users can run scripts from our library or custom writen ones to automate workflows such as:
+- ...
 
-On a self-hosted n8n, go to **Settings > Community nodes** and install
-`@reduck-ai/n8n-nodes-reduck`. See the [n8n guide](https://docs.n8n.io/integrations/community-nodes/installation/).
+## Requirements
 
-Where you cannot install it, use the [MCP Client Tool](#without-the-node-the-mcp-client-tool) instead.
+- A [Reduck account](https://reduck.ai/#signin).
+- To run scripts on your own Chrome: the
+  [Reduck extension](https://chromewebstore.google.com/detail/reduck/koccidjchcojlmgkdhibpgjbnhcoopio),
+  paired with your account. See [pairing](https://docs.reduck.ai/#quick-start). The default,
+  a Reduck managed browser, needs nothing more.
 
-## Credentials
+## Quick start
 
-Choose one in the node's **Authentication** field:
+1. **Install the node**, then restart n8n:
 
-- **API Key** (the default): in the Reduck dashboard, open [API keys](https://reduck.ai/api-keys)
-  and create a key. Then create a **Reduck API** credential in n8n and paste the key. Keep the
-  default **Reduck URL**.
-- **OAuth2**: create a **Reduck OAuth2 API** credential and select **Connect**. Sign in to Reduck
-  and approve n8n. There is no client ID or secret to enter.
+   ```bash
+   mkdir -p ~/.n8n/nodes && cd ~/.n8n/nodes && npm install @reduck-ai/n8n-nodes-reduck
+   ```
 
-## Run a script
+   For Docker and other setups, see the
+   [n8n guide](https://docs.n8n.io/integrations/community-nodes/installation/).
 
-The node runs a script, waits until the run finishes, and returns the run.
+2. **Sign in.** Add a **Reduck** node to a workflow. In **Credential**, select **Create new
+   credential**, then **Connect**, and approve n8n on Reduck.
 
-- **Script**: pick one from the list (your scripts, your projects' scripts and the official
-  catalogue), or give its address, such as `reduck/news.ycombinator.com/top_stories`.
-- **Arguments**: one field for each argument the script takes, read from the script itself.
-- **Files**: a script that takes a file shows one field for each file input, such as
-  `attachment (binary property)`. Write the name of the binary property of the input item that
-  holds the file, for example `data`. The page gets the file with the name of the input. A file can
-  be approximately 3 MB.
-- **Browser**: a Reduck managed browser (the default), or one of your paired browsers.
-- **Region** and **Country**: for the managed browser only. Region is the datacenter the browser
-  runs in. Country connects to the site from that country through a residential proxy, for a site
-  that changes by country.
+   ![The new Reduck OAuth2 API credential, with its Connect button](https://raw.githubusercontent.com/reduck-ai/n8n-nodes-reduck/main/images/quick-start-connect.png)
 
-The output is the run. `result` holds what the script returned:
+   To use an API key instead, create a **Reduck API** credential with a key from
+   [API keys](https://reduck.ai/api-keys), and select it in **Credential**.
 
-```json
-{
-  "id": "15783c22-bb29-43a6-956f-7ea3d3852c25",
-  "status": "success",
-  "result": { "…": "the script's output" },
-  "started_at": "2026-10-25T10:09:34.034Z",
-  "finished_at": "2026-10-25T10:09:34.633Z"
-}
-```
+3. **Run a script.** In **Script**, search `hacker news` and select **Top Hacker News stories**.
+   Then select **Execute step**. `result` holds the stories:
 
-If the script fails, the node fails with the script's message. Turn on **Continue On Fail** to get
-`{ "error": "…" }` instead.
-
-## Use it as an AI agent tool
-
-Connect the **Reduck Tool** to an **AI Agent** node. Pick the script, and let the agent fill the
-arguments: select the sparkle icon next to a field, or use `{{ $fromAI('query') }}`.
+   ![The Reduck node after Execute step: the run succeeded, and result lists the stories](https://raw.githubusercontent.com/reduck-ai/n8n-nodes-reduck/main/images/quick-start-run.png)
 
 ## Examples
 
@@ -75,35 +55,6 @@ Import a workflow from [examples](https://github.com/reduck-ai/n8n-nodes-reduck/
   every morning, asks ChatGPT your buyers' questions in the ChatGPT app and records whether the
   answer cites your site, names you, or cites others. The rows go to an n8n data table.
 
-## Without the node: the MCP Client Tool
+  ## Features
 
-n8n Cloud installs only the community nodes that n8n has verified. Where you cannot install this
-node, give an AI Agent the Reduck tools with n8n's own **MCP Client Tool** node:
-
-1. On the **Tool** connector of an **AI Agent** node, add an **MCP Client Tool** node.
-2. Set **Endpoint URL** to `https://mcp.reduck.ai` and **Server Transport** to
-   **HTTP Streamable**.
-3. Set **Authentication** to **Header Auth**, with a credential whose name is `X-API-Key` and
-   whose value is your [Reduck API key](https://reduck.ai/api-keys).
-4. In **Options > Timeout**, write `300000` (five minutes). The default of one minute is not
-   sufficient: a script opens a real browser and loads a real page.
-5. Set **Include Tools** to **Selected**, and select `list_scripts`, `read_script` and
-   `run_script`. The other tools are for writing scripts, and an agent that only runs scripts
-   does better with fewer tools.
-
-To make sure that it works, ask the agent to run `whoami`. It tells you the Reduck account the
-key belongs to.
-
-## Not supported yet
-
-- Running several scripts in one call.
-
-## Compatibility
-
-Tested with n8n 2.x.
-
-## Resources
-
-- [Reduck](https://reduck.ai)
-- [Reduck documentation](https://docs.reduck.ai)
-- [n8n community nodes](https://docs.n8n.io/integrations/#community-nodes)
+  ## Building your own script and using it
