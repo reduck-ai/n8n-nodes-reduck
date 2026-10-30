@@ -28,6 +28,8 @@ You can run scripts from the [Reduck library](https://reduck.ai/explore), or fro
 
 ## Requirements
 
+- An [n8n](https://docs.n8n.io/hosting/) instance where you can install community nodes. The
+  [quick start from the command line](#quick-start-from-the-command-line) needs n8n 2 or later.
 - A [Reduck account](https://reduck.ai/#signin).
 - The [Reduck extension](https://chromewebstore.google.com/detail/reduck/koccidjchcojlmgkdhibpgjbnhcoopio),
   paired with your account (see [pairing](https://docs.reduck.ai/#quick-start)). Scripts run on
@@ -58,6 +60,49 @@ You can run scripts from the [Reduck library](https://reduck.ai/explore), or fro
 
    ![The Reduck node after Execute step: the run succeeded, and result lists the stories](https://raw.githubusercontent.com/reduck-ai/n8n-nodes-reduck/main/images/quick-start-run.png)
 
+## Quick start from the command line
+
+The same result with no clicks, for example from a script or an AI agent. You need n8n 2 or
+later, and an API key from [API keys](https://reduck.ai/api-keys). The workflow runs on a Reduck
+managed browser, so you do not need the extension. Stop n8n before you start: n8n reads
+published workflows when it starts.
+
+1. **Install the node:**
+
+   ```bash
+   mkdir -p ~/.n8n/nodes && cd ~/.n8n/nodes && npm install @reduck-ai/n8n-nodes-reduck
+   ```
+
+2. **Add your API key as a credential.** n8n encrypts the key when it imports the file:
+
+   ```bash
+   cat > reduck-credential.json <<EOF
+   [{"id": "reduckQuickStart", "name": "Reduck API", "type": "reduckApi", "data": {"apiKey": "$REDUCK_API_KEY"}}]
+   EOF
+   n8n import:credentials --input=reduck-credential.json && rm reduck-credential.json
+   ```
+
+3. **Import and publish the workflow.** It answers a webhook with the top Hacker News stories:
+
+   ```bash
+   curl -sO https://raw.githubusercontent.com/reduck-ai/n8n-nodes-reduck/main/examples/hacker-news-webhook.json
+   n8n import:workflow --input=hacker-news-webhook.json
+   n8n publish:workflow --id=reduckHackerNews
+   ```
+
+4. **Start n8n, then call the workflow** from another terminal:
+
+   ```bash
+   n8n start
+   ```
+
+   ```bash
+   curl http://localhost:5678/webhook/hacker-news
+   ```
+
+   The answer is the run. `result` holds the 10 top stories, and `id` links to the run's steps
+   and screenshots at `https://reduck.ai/runs/<id>`.
+
 ## Examples
 
 Import a workflow from [examples](https://github.com/reduck-ai/n8n-nodes-reduck/tree/main/examples)
@@ -66,3 +111,29 @@ Import a workflow from [examples](https://github.com/reduck-ai/n8n-nodes-reduck/
 - [Does ChatGPT cite your brand?](https://github.com/reduck-ai/n8n-nodes-reduck/blob/main/examples/chatgpt-brand-visibility.json):
   every morning, asks ChatGPT your buyers' questions in the ChatGPT app and records whether the
   answer cites your site, names you, or cites others. The rows go to an n8n data table.
+- [Top Hacker News stories, on a webhook](https://github.com/reduck-ai/n8n-nodes-reduck/blob/main/examples/hacker-news-webhook.json):
+  answers `GET /webhook/hacker-news` with the front page as JSON. The
+  [quick start from the command line](#quick-start-from-the-command-line) uses it.
+
+## FAQ
+
+### Do I need an API key or an OAuth app for LinkedIn, Facebook or Reddit?
+
+No. A script uses the site in a browser where you are already signed in.
+
+### What happens when a site signs me out?
+
+The run fails and says that the browser is not signed in. Sign in to the site again in your
+browser, and the next run works.
+
+### Paired browser or managed browser?
+
+- **Paired browser** (the Reduck extension): for a site where you must be signed in. Chrome must
+  be open on your computer.
+- **Reduck managed browser**: for a site with no sign-in. Nothing runs on your computer. If the
+  site refuses the run because it comes from a datacenter, set **Country** to connect from a home
+  address in that country.
+
+### How much does it cost?
+
+Reduck has a free plan. See [pricing](https://reduck.ai/pricing).
