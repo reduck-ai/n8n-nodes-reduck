@@ -5,22 +5,19 @@
   </picture>
 </p>
 
-# @reduck-ai/n8n-nodes-reduck
-
-The official [Reduck](https://reduck.ai) node for [n8n](https://n8n.io).
+# Official [Reduck](https://reduck.ai) node for [n8n](https://n8n.io).
 
 Reduck enables Agents to write, run and maintain browser automation scripts to automate sites with no API, such as LinkedIn, WhatsApp, Reddit, etc.
 
 With Reduck n8n node, users can run scripts from our library or custom writen ones to automate workflows such as:
-- ...
+- 
 
 ## Requirements
 
 - A [Reduck account](https://reduck.ai/#signin).
-- To run scripts on your own Chrome: the
-  [Reduck extension](https://chromewebstore.google.com/detail/reduck/koccidjchcojlmgkdhibpgjbnhcoopio),
-  paired with your account. See [pairing](https://docs.reduck.ai/#quick-start). The default,
-  a Reduck managed browser, needs nothing more.
+- The [Reduck extension](https://chromewebstore.google.com/detail/reduck/koccidjchcojlmgkdhibpgjbnhcoopio),
+  paired with your account (see [pairing](https://docs.reduck.ai/#quick-start)). Scripts run on
+  this browser by default. To run without it, set **Browser** to **Reduck Managed Browser**.
 
 ## Quick start
 
@@ -42,7 +39,8 @@ With Reduck n8n node, users can run scripts from our library or custom writen on
    [API keys](https://reduck.ai/api-keys), and select it in **Credential**.
 
 3. **Run a script.** In **Script**, search `hacker news` and select **Top Hacker News stories**.
-   Then select **Execute step**. `result` holds the stories:
+   Then select **Execute step**. The script runs on your paired browser, and `result` holds the
+   stories:
 
    ![The Reduck node after Execute step: the run succeeded, and result lists the stories](https://raw.githubusercontent.com/reduck-ai/n8n-nodes-reduck/main/images/quick-start-run.png)
 
@@ -55,6 +53,6 @@ Import a workflow from [examples](https://github.com/reduck-ai/n8n-nodes-reduck/
   every morning, asks ChatGPT your buyers' questions in the ChatGPT app and records whether the
   answer cites your site, names you, or cites others. The rows go to an n8n data table.
 
-  ## Features
+## Features
 
-  ## Building your own script and using it
+## Building your own script and using it
