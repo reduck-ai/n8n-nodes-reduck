@@ -3,7 +3,7 @@
 	"nodes": [
 		{
 			"parameters": {
-				"content": "## Does ChatGPT cite your brand?\n\nEvery morning, this asks ChatGPT your buyers' questions in the ChatGPT app, with its web search, as a buyer sees it. Each answer gets a verdict:\n\n- **cited**: the answer links a page of your site\n- **named**: it names you, with no link to your site\n- **absent**: it searched the web, and cited and named others\n- **no search**: it answered from memory. No page can win this answer: the wording of the question decides it\n\n`cited_domains` shows who was cited instead: these are the pages to beat. One answer is noisy, so read the trend over several days.\n\nThe OpenAI API cannot do this: it does not answer like the app, and it does not show its citations.\n\n### Setup\n1. Create a **Reduck API** credential with a key from https://reduck.ai/api-keys\n2. Set your brand and your questions in **Your brand and questions**\n3. Click **Try it now**. The rows go to the data table `chatgpt_visibility`.\n\nEach question is 1 Reduck run a day, on a Reduck browser that is signed out of ChatGPT. You install nothing.",
+				"content": "## Does ChatGPT cite your brand?\n\nEvery morning, this asks ChatGPT your buyers' questions in the ChatGPT app, with its web search, as a buyer sees it. Each answer gets a verdict:\n\n- **cited**: the answer links a page of your site\n- **named**: it names you, with no link to your site\n- **absent**: it searched the web, and cited and named others\n- **no search**: it answered from memory. No page can win this answer: the wording of the question decides it\n\n`cited_domains` shows who was cited instead: these are the pages to beat. One answer is noisy, so read the trend over several days.\n\nThe OpenAI API cannot do this: it does not answer like the app, and it does not show its citations.\n\n### Setup\n1. Create a **Reduck API** credential with a key from https://reduck.ai/api-keys\n2. Set your brand and your questions in **Your brand and questions**\n3. Click **Try it now**. The rows go to the data table `chatgpt_visibility`.\n\nEach question is 1 Reduck run a day, on a Reduck browser that is signed out of ChatGPT and connects from a US home address (**Country**: US), as a buyer in the US asks. ChatGPT refuses many questions sent from a datacenter. You install nothing.",
 				"height": 560,
 				"width": 440
 			},
@@ -132,7 +132,7 @@
 				},
 				"deviceId": "",
 				"region": "us-east-1",
-				"country": ""
+				"country": "US"
 			},
 			"id": "b1f0e6a4-0c1e-4c39-9d63-1a7f2e5c0006",
 			"name": "Ask ChatGPT",
