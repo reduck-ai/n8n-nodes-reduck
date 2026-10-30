@@ -1,11 +1,11 @@
+# Official [Reduck](https://reduck.ai) node for [n8n](https://n8n.io)
+
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://cdn.reduck.ai/logo-full-white.png" />
-    <img src="https://cdn.reduck.ai/logo-full-dark.png" alt="Reduck" width="300" />
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/reduck-ai/n8n-nodes-reduck/main/images/reduck-x-n8n-dark.png" />
+    <img src="https://raw.githubusercontent.com/reduck-ai/n8n-nodes-reduck/main/images/reduck-x-n8n-light.png" alt="Reduck × n8n" width="460" />
   </picture>
 </p>
-
-# Official [Reduck](https://reduck.ai) node for [n8n](https://n8n.io)
 
 n8n is a powerful automation framework but faces key challenges:
 
@@ -117,16 +117,23 @@ Import a workflow from [examples](https://github.com/reduck-ai/n8n-nodes-reduck/
 
 ## FAQ
 
-### Do I need an API key or an OAuth app for LinkedIn, Facebook or Reddit?
+<details>
+<summary>Do I need an API key or an OAuth app for LinkedIn, Facebook or Reddit?</summary>
 
 No. A script uses the site in a browser where you are already signed in.
 
-### What happens when a site signs me out?
+</details>
+
+<details>
+<summary>What happens when a site signs me out?</summary>
 
 The run fails and says that the browser is not signed in. Sign in to the site again in your
 browser, and the next run works.
 
-### Paired browser or managed browser?
+</details>
+
+<details>
+<summary>Paired browser or managed browser?</summary>
 
 - **Paired browser** (the Reduck extension): for a site where you must be signed in. Chrome must
   be open on your computer.
@@ -134,6 +141,11 @@ browser, and the next run works.
   site refuses the run because it comes from a datacenter, set **Country** to connect from a home
   address in that country.
 
-### How much does it cost?
+</details>
+
+<details>
+<summary>How much does it cost?</summary>
 
 Reduck has a free plan. See [pricing](https://reduck.ai/pricing).
+
+</details>
