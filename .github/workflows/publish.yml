@@ -85,7 +85,6 @@ jobs:
       # Publishes the version package.json holds unless npm has it already: nothing to do after a
       # run that released nothing, and a run again after a failed publish only publishes.
       - name: Publish to npm
-        id: publish
         run: |
           version="$(node -p 'const p = require("./package.json"); p.name + "@" + p.version')"
           if [ -n "$(npm view "$version" version 2>/dev/null)" ]; then
@@ -93,24 +92,7 @@ jobs:
           else
             npm run build
             npm publish --provenance
-            echo "version=$(node -p 'require("./package.json").version')" >> "$GITHUB_OUTPUT"
           fi
         env:
           # n8n-node's prepublishOnly refuses a publish without it.
           RELEASE_MODE: 'true'
-
-      # docs.reduck.ai/n8n is this README as npm serves it: its build waits for this version, then
-      # deploys. DOCS_SYNC_TOKEN (Actions read and write on conception-ai/docs.reduck.ai) is the
-      # one the monorepo starts the same build with; unset, the page follows at the docs' daily build.
-      - name: Rebuild docs.reduck.ai
-        if: steps.publish.outputs.version
-        run: |
-          if [ -z "$GH_TOKEN" ]; then
-            echo "::warning::DOCS_SYNC_TOKEN is not set: docs.reduck.ai shows $VERSION at its next daily build."
-            exit 0
-          fi
-          gh workflow run pages.yml --repo conception-ai/docs.reduck.ai \
-            -f package=n8n-nodes-reduck -f version="$VERSION"
-        env:
-          GH_TOKEN: ${{ secrets.DOCS_SYNC_TOKEN }}
-          VERSION: ${{ steps.publish.outputs.version }}
