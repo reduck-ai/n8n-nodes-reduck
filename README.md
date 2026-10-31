@@ -38,6 +38,48 @@ You can run scripts from the [Reduck library](https://reduck.ai/explore), or fro
 
 <!-- tabs -->
 
+### CLI
+
+1. **Stop n8n, then install the node.** You need n8n 2 or later:
+
+   ```bash
+   mkdir -p ~/.n8n/nodes && cd ~/.n8n/nodes && npm install @reduck-ai/n8n-nodes-reduck
+   ```
+
+2. **Add your API key as a credential.** Get a key from [API keys](https://reduck.ai/api-keys).
+   n8n encrypts it when it imports the file:
+
+   ```bash
+   cat > reduck-credential.json <<EOF
+   [{"id": "reduckQuickStart", "name": "Reduck API", "type": "reduckApi", "data": {"apiKey": "$REDUCK_API_KEY"}}]
+   EOF
+   n8n import:credentials --input=reduck-credential.json && rm reduck-credential.json
+   ```
+
+3. **Import and publish the workflow.** It answers a webhook with the Google AI Overview for a
+   search. It runs on a Reduck managed browser, so you do not need the extension:
+
+   ```bash
+   curl -sO https://raw.githubusercontent.com/reduck-ai/n8n-nodes-reduck/main/examples/google-ai-overview-webhook.json
+   n8n import:workflow --input=google-ai-overview-webhook.json
+   n8n publish:workflow --id=reduckAiOverview
+   ```
+
+4. **Start n8n, then call the workflow** from another terminal. n8n reads published workflows
+   only when it starts:
+
+   ```bash
+   n8n start
+   ```
+
+   ```bash
+   curl "http://localhost:5678/webhook/ai-overview?q=best+crm+for+small+business"
+   ```
+
+   The answer is the run. `result` holds the overview's answer and the pages it cites, and `id`
+   links to the run's steps and screenshots at `https://reduck.ai/runs/<id>`. If the run fails,
+   the answer is `{ "error", "details" }`: what went wrong, and the link to the run.
+
 ### n8n editor
 
 1. **Install the node**, then restart n8n:
@@ -63,49 +105,6 @@ You can run scripts from the [Reduck library](https://reduck.ai/explore), or fro
 
    ![The Reduck node after Execute step: the run succeeded, and result lists the stories](https://raw.githubusercontent.com/reduck-ai/n8n-nodes-reduck/main/images/quick-start-run.png)
 
-### Command line
-
-The same result with no clicks, for example from a script or an AI agent. You need n8n 2 or
-later, and an API key from [API keys](https://reduck.ai/api-keys). The workflow runs on a Reduck
-managed browser, so you do not need the extension. Stop n8n before you start: n8n reads
-published workflows when it starts.
-
-1. **Install the node:**
-
-   ```bash
-   mkdir -p ~/.n8n/nodes && cd ~/.n8n/nodes && npm install @reduck-ai/n8n-nodes-reduck
-   ```
-
-2. **Add your API key as a credential.** n8n encrypts the key when it imports the file:
-
-   ```bash
-   cat > reduck-credential.json <<EOF
-   [{"id": "reduckQuickStart", "name": "Reduck API", "type": "reduckApi", "data": {"apiKey": "$REDUCK_API_KEY"}}]
-   EOF
-   n8n import:credentials --input=reduck-credential.json && rm reduck-credential.json
-   ```
-
-3. **Import and publish the workflow.** It answers a webhook with the top Hacker News stories:
-
-   ```bash
-   curl -sO https://raw.githubusercontent.com/reduck-ai/n8n-nodes-reduck/main/examples/hacker-news-webhook.json
-   n8n import:workflow --input=hacker-news-webhook.json
-   n8n publish:workflow --id=reduckHackerNews
-   ```
-
-4. **Start n8n, then call the workflow** from another terminal:
-
-   ```bash
-   n8n start
-   ```
-
-   ```bash
-   curl http://localhost:5678/webhook/hacker-news
-   ```
-
-   The answer is the run. `result` holds the 10 top stories, and `id` links to the run's steps
-   and screenshots at `https://reduck.ai/runs/<id>`.
-
 <!-- /tabs -->
 
 ## Examples
@@ -116,9 +115,9 @@ Import a workflow from [examples](https://github.com/reduck-ai/n8n-nodes-reduck/
 - [Does ChatGPT cite your brand?](https://github.com/reduck-ai/n8n-nodes-reduck/blob/main/examples/chatgpt-brand-visibility.json):
   every morning, asks ChatGPT your buyers' questions in the ChatGPT app and records whether the
   answer cites your site, names you, or cites others. The rows go to an n8n data table.
-- [Top Hacker News stories, on a webhook](https://github.com/reduck-ai/n8n-nodes-reduck/blob/main/examples/hacker-news-webhook.json):
-  answers `GET /webhook/hacker-news` with the front page as JSON. The command-line
-  [quick start](#quick-start) uses it.
+- [Google AI Overview, on a webhook](https://github.com/reduck-ai/n8n-nodes-reduck/blob/main/examples/google-ai-overview-webhook.json):
+  answers `GET /webhook/ai-overview?q=<search>` with the AI Overview Google shows for that search,
+  as JSON. The CLI [quick start](#quick-start) uses it.
 
 ## FAQ
 
@@ -134,6 +133,19 @@ No. A script uses the site in a browser where you are already signed in.
 
 The run fails and says that the browser is not signed in. Sign in to the site again in your
 browser, and the next run works.
+
+</details>
+
+<details>
+<summary>How do I handle a failed run in my workflow?</summary>
+
+By default, a failed run stops the workflow. The node shows what went wrong and links to the
+run's steps and screenshots. To continue, open the node's **Settings** and set **On Error**:
+
+- **Continue**: the item goes on as `{ "error", "details" }`, where `error` says what went wrong
+  and `details` links to the run.
+- **Continue (using error output)**: the same item goes to a second output, so you can send
+  failures to another branch, for example to alert you.
 
 </details>
 

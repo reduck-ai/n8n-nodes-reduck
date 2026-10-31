@@ -1,0 +1,81 @@
+{
+	"id": "reduckAiOverview",
+	"name": "Google AI Overview, on a webhook (Reduck)",
+	"nodes": [
+		{
+			"parameters": {
+				"content": "## Google AI Overview, on a webhook\n\nCall `GET /webhook/ai-overview?q=<search>` and get the AI Overview Google shows for that search as JSON: its answer as Markdown and the pages it cites.\n\nThe Reduck node runs the script `reduck/google.com/get_ai_overview` on a Reduck managed browser in the US (**Region**: US East). The site needs no sign-in, so you install nothing.\n\nWhen the run fails, the answer is the run with its `error`: the node's **On Error** setting is **Continue**.\n\nThe Reduck node uses the credential `reduckQuickStart`: the README's quick start makes it from your API key.",
+				"height": 340,
+				"width": 420
+			},
+			"id": "4d0f3a8e-6a51-4c1b-9d0e-2a7c1f5b8e11",
+			"name": "About",
+			"type": "n8n-nodes-base.stickyNote",
+			"typeVersion": 1,
+			"position": [-460, -160]
+		},
+		{
+			"parameters": {
+				"path": "ai-overview",
+				"responseMode": "lastNode",
+				"options": {}
+			},
+			"id": "8b2e6c41-0f7d-4e3a-b5a9-6d1c2e4f7a12",
+			"name": "Webhook",
+			"type": "n8n-nodes-base.webhook",
+			"typeVersion": 2,
+			"position": [0, 0],
+			"webhookId": "5e9a1c7d-3b2f-4a6e-8d0c-1f4b7e2a9c13"
+		},
+		{
+			"parameters": {
+				"authentication": "apiKey",
+				"script": {
+					"__rl": true,
+					"mode": "address",
+					"value": "reduck/google.com/get_ai_overview"
+				},
+				"args": {
+					"mappingMode": "defineBelow",
+					"value": {
+						"query": "={{ $json.query.q }}"
+					},
+					"matchingColumns": [],
+					"schema": [
+						{
+							"id": "query",
+							"displayName": "query",
+							"required": true,
+							"defaultMatch": false,
+							"display": true,
+							"type": "string",
+							"canBeUsedToMatch": false
+						}
+					]
+				},
+				"deviceId": "",
+				"region": "us-east-1"
+			},
+			"id": "2f7c9e15-8a4d-4b6f-a3e1-7c0d5b9f2e14",
+			"name": "AI Overview",
+			"type": "@reduck-ai/n8n-nodes-reduck.reduck",
+			"typeVersion": 1.1,
+			"position": [240, 0],
+			"onError": "continueRegularOutput",
+			"credentials": {
+				"reduckApi": {
+					"id": "reduckQuickStart",
+					"name": "Reduck API"
+				}
+			}
+		}
+	],
+	"connections": {
+		"Webhook": {
+			"main": [[{ "node": "AI Overview", "type": "main", "index": 0 }]]
+		}
+	},
+	"settings": {
+		"executionOrder": "v1"
+	}
+}
