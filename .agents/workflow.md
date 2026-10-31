@@ -65,8 +65,9 @@ When asked to build or update a node in this project, follow these steps:
   allow the user to manually test the node in n8n to verify that it does what
   is expected
 - Make sure to use **proper types whenever possible**
-- If you are updating the npm package version, make sure to **update
-  CHANGELOG.md** in the root of the repository
+- **Never bump the version or edit CHANGELOG.md by hand**: a push to `main`
+  releases a patch version (`.github/workflows/publish.yml`); for a minor or
+  a major one, run that workflow by hand
 
 ## CLI
 This project uses n8n's CLI tool for developing community nodes: `n8n-node`. It
@@ -87,11 +88,5 @@ commands. Short overview of the commands:
   `n8n-node cloud-support enable` to enable strict mode + default ESLint config
   or `n8n-node cloud-support disable` to allow custom ESLint config (disables
   cloud eligibility)
-- `n8n-node release` - publish your community node package to npm.
-  This command handles the complete release process using `release-it`:
-  - Builds the node
-  - Runs linting checks
-  - Updates changelog
-  - Creates git tags
-  - Creates GitHub releases
-  - Publishes to npm
+- `n8n-node release` - not used here: `.github/workflows/publish.yml` releases
+  and publishes on every push to `main`.

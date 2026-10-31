@@ -1,79 +1,59 @@
-# Publishes this n8n community node package to npm on every version tag push.
+# Releases this package on every push to main that changes what it ships: bumps the patch
+# version, updates CHANGELOG.md, commits "Release x.y.z", tags it, creates the GitHub release and
+# publishes to npm with provenance. For a minor or a major version, run it by hand instead
+# (Actions > Publish > Run workflow) and choose the increment.
 #
-# Starting May 1 2026, n8n requires all community nodes to be published via
-# GitHub Actions with npm provenance statements. This workflow satisfies that
-# requirement. Provenance lets anyone cryptographically verify that a package
-# was built by this exact workflow, from this exact repository and commit.
+# One job does it all: a commit or tag pushed with GITHUB_TOKEN starts no workflow, so a second
+# workflow on the tag would never run. For the same reason the release commit starts no new run.
 #
-# ─── PREREQUISITES ─────────────────────────────────────────────────────────────
-#
-# @n8n/node-cli ≥ 0.23.0 is required. Earlier versions do not support the
-# provenance flag passed by `npm run release` in CI, and the publish step will
-# fail. Check the version installed in this project with:
-#
-#   npm list @n8n/node-cli
-#
-# To upgrade, add @n8n/node-cli@latest as a dev dependency using your package manager.
-#
-# ─── ONE-TIME SETUP ────────────────────────────────────────────────────────────
-#
-# Option A — OIDC Trusted Publishing (recommended, no long-lived secrets):
-#   1. Log in to npmjs.com and open your package's settings.
-#   2. Under "Publish access" → "Trusted Publishers", click "Add a publisher".
-#   3. Select GitHub Actions and fill in:
-#        Repository owner: <your-github-username-or-org>
-#        Repository name:  <your-repo-name>
-#        Workflow name:    publish.yml
-#        Environment:      (leave blank unless you use GitHub Environments)
-#   4. Leave the NPM_TOKEN secret unset in this repository. GitHub's OIDC
-#      token is used instead — no secret ever touches your repo settings.
-#
-# Option B — npm Automation Token (fallback):
-#   1. On npmjs.com: Access Tokens → Generate New Token → Granular Access Token.
-#      Scope it to this package with "Read and write" publish permission.
-#   2. In GitHub: Settings → Secrets and variables → Actions → New secret.
-#      Name it NPM_TOKEN and paste the token value.
-#
-# Both options work with --provenance. Provenance is signed by GitHub's OIDC
-# infrastructure regardless of how npm authentication is handled.
-#
-# ─── TAG CONVENTION ────────────────────────────────────────────────────────────
-#
-# This workflow triggers on tags matching "*.*.*" (e.g. 0.2.0).
-# If you prefer tags with a "v" prefix (e.g. v0.2.0), change the filter to:
-#   tags: ['v*.*.*']
-#
-# ─── RELEASE PROCESS ───────────────────────────────────────────────────────────
-#
-# Run the following command locally to start an interactive release:
-#
-#   npm run release
-#
-# This will lint, build, prompt for a version bump, update the changelog,
-# commit, tag, and push — which triggers this workflow to publish to npm.
+# npm trusts this workflow by its file name (Trusted Publishing, OIDC; no NPM_TOKEN): renaming
+# publish.yml stops publishing until the package's Trusted Publisher on npmjs.com is updated.
 
 name: Publish
 
 on:
   push:
-    tags:
-      # Matches 0.1.0, 1.2.3, 2.0.0-rc.1, etc.
-      # See "TAG CONVENTION" above if you prefer tags with a "v" prefix.
-      - '*.*.*'
+    branches: [main]
+    # What the npm package holds (dist, built from nodes and credentials) and shows (README.md).
+    paths:
+      - 'nodes/**'
+      - 'credentials/**'
+      - 'README.md'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+  workflow_dispatch:
+    inputs:
+      increment:
+        description: 'Version increment'
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+
+# One release at a time, in order: two at once would bump the same version.
+concurrency:
+  group: publish
+  cancel-in-progress: false
 
 jobs:
   publish:
-    name: Publish to npm
+    name: Release and publish to npm
     runs-on: ubuntu-latest
 
     permissions:
-      # Required to mint an OIDC token for npm provenance attestation.
+      # The OIDC token npm exchanges for publishing and signs the provenance with.
       id-token: write
-      # Scoped down from the default (write) for least-privilege publishing.
-      contents: read
+      # The release commit, its tag and the GitHub release.
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # main as it is now, not the commit that queued this run: a queued run releases what a
+          # run before it did not.
+          ref: main
+          # release-it and auto-changelog read every commit since the last tag.
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -84,16 +64,35 @@ jobs:
       - name: Install dependencies
         run: 'npm ci'
 
-      - name: Release
-        # Publishes to npm with a provenance attestation (requires id-token: write above).
-        # Lint and build run automatically as part of the release process.
-        #
-        # Option A (OIDC): leave NPM_TOKEN unset — the token step is skipped and
-        #   npm uses the OIDC exchange instead.
-        # Option B (token): set NPM_TOKEN in repo secrets — it is written to
-        #   .npmrc here before publishing.
+      # Lint and build come first: a failure stops the run before anything is pushed. With no
+      # commit since the last release, release-it stops without failing and pushes nothing.
+      - name: Bump, changelog, commit, tag and GitHub release
         run: |
-          [ -n "$NPM_TOKEN" ] && npm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
-          npm run release
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          npx release-it "$INCREMENT" --ci \
+            --git.requireBranch=main \
+            --git.requireCommitsFail=false \
+            --git.changelog='npx auto-changelog --stdout --unreleased --commit-limit false -u --hide-credit' \
+            --hooks.before:init='npm run lint && npm run build' \
+            --hooks.after:bump='npx auto-changelog -p' \
+            --github.release \
+            --npm.publish=false
         env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          INCREMENT: ${{ inputs.increment || 'patch' }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Publishes the version package.json holds unless npm has it already: nothing to do after a
+      # run that released nothing, and a run again after a failed publish only publishes.
+      - name: Publish to npm
+        run: |
+          version="$(node -p 'const p = require("./package.json"); `${p.name}@${p.version}`')"
+          if [ -n "$(npm view "$version" version 2>/dev/null)" ]; then
+            echo "$version is on npm already."
+          else
+            npm run build
+            npm publish --provenance
+          fi
+        env:
+          # n8n-node's prepublishOnly refuses a publish without it.
+          RELEASE_MODE: 'true'
