@@ -59,7 +59,7 @@ export async function reduckRequest<T>(
 	}
 }
 
-// A script is addressed as "<handle>/<host>/<slug>", e.g. "reduck/news.ycombinator.com/top_stories".
+// A script is addressed as "<handle>/<host>/<slug>", e.g. "reduck/google.com/get_ai_overview".
 export function parseScriptAddress(address: string): { handle: string; host: string; slug: string } | null {
 	const [handle, host, slug, ...rest] = address.trim().split('/');
 	if (!handle || !host || !slug || rest.length) return null;

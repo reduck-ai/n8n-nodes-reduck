@@ -85,7 +85,7 @@ export class Reduck implements INodeType {
 						displayName: 'By Address',
 						name: 'address',
 						type: 'string',
-						placeholder: 'e.g. reduck/news.ycombinator.com/top_stories',
+						placeholder: 'e.g. reduck/google.com/get_ai_overview',
 						hint: 'The owner handle, the site and the script, separated by slashes',
 						validation: [
 							{

@@ -91,19 +91,21 @@ You can run scripts from the [Reduck library](https://reduck.ai/explore), or fro
    For Docker and other setups, see the
    [n8n guide](https://docs.n8n.io/integrations/community-nodes/installation/).
 
-2. **Sign in.** Add a **Reduck** node to a workflow. In **Credential**, select **Create new
-   credential**, then **Connect**, and approve n8n on Reduck.
+2. **Sign in.** Add a **Reduck** node to a workflow. In **Credential**, select **Connect to
+   Reduck**, then **Connect**, and approve n8n on Reduck. If **Browser** then shows an error,
+   close the node and open it again.
 
    ![The new Reduck OAuth2 API credential, with its Connect button](https://raw.githubusercontent.com/reduck-ai/n8n-nodes-reduck/main/images/quick-start-connect.png)
 
    To use an API key instead, create a **Reduck API** credential with a key from
    [API keys](https://reduck.ai/api-keys), and select it in **Credential**.
 
-3. **Run a script.** In **Script**, search `hacker news` and select **Top Hacker News stories**.
-   Then select **Execute step**. The script runs on your paired browser, and `result` holds the
-   stories:
+3. **Run a script.** In **Script**, search `ai overview` and select **Get Google AI Overview**.
+   In **query**, type a search, for example `best crm for small business`. Then select
+   **Execute step**. The script runs on your paired browser, and `result` holds the overview's
+   answer and the pages it cites:
 
-   ![The Reduck node after Execute step: the run succeeded, and result lists the stories](https://raw.githubusercontent.com/reduck-ai/n8n-nodes-reduck/main/images/quick-start-run.png)
+   ![The Reduck node after Execute step: the run succeeded, and result holds the overview's answer](https://raw.githubusercontent.com/reduck-ai/n8n-nodes-reduck/main/images/quick-start-run.png)
 
 <!-- /tabs -->
 
