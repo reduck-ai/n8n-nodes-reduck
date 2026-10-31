@@ -200,7 +200,13 @@ export class Reduck implements INodeType {
 						? error
 						: new NodeApiError(this.getNode(), error as JsonObject, { itemIndex: i });
 				if (!this.continueOnFail()) throw failure;
-				out.push({ json: { error: failure.message }, pairedItem: { item: i } });
+				// n8n's own shape for a failed item: { error, details } and nothing else is what sends it
+				// down the error output ("Continue (using error output)"). Not `item.error`: n8n then
+				// rewrites json to the message alone and the run's link in `details` is lost.
+				out.push({
+					json: { error: failure.message, ...(failure.description ? { details: failure.description } : {}) },
+					pairedItem: { item: i },
+				});
 			}
 		}
 		return [out];
