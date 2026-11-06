@@ -288,8 +288,14 @@ async function runBatch(ctx: IExecuteFunctions, items: ItemRun[]): Promise<Run[]
 	} catch (error) {
 		// Default with several paired browsers: the API refuses (409), as the choice is ambiguous,
 		// and names them. Not an API failure but a setting to change: its sentence as is, and where.
+		// The sentence is checked too, as the API also answers 409 for other refusals (an archived
+		// script).
 		const apiError = error instanceof NodeApiError ? error : new NodeApiError(ctx.getNode(), error as JsonObject);
-		if ('browser' in items[0].target && apiError.httpCode === '409') {
+		if (
+			'browser' in items[0].target &&
+			apiError.httpCode === '409' &&
+			apiError.message.startsWith('Multiple ')
+		) {
 			throw new NodeOperationError(ctx.getNode(), apiError.message, {
 				description: 'Choose your browser by name in Device.',
 			});
