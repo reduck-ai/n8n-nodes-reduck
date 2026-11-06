@@ -280,9 +280,22 @@ export class Reduck implements INodeType {
 // holds for the API's default wait, under the 60 s after which VPNs and proxies drop a connection
 // that carries no byte.
 async function runBatch(ctx: IExecuteFunctions, items: ItemRun[]): Promise<Run[]> {
-	const batch = await reduckRequest<{ batch_id: string; runs: Run[] }>(ctx, 'POST', '/api/runs', {
-		body: { scripts: items.map((item) => item.script), ...items[0].target },
-	});
+	let batch: { batch_id: string; runs: Run[] };
+	try {
+		batch = await reduckRequest<{ batch_id: string; runs: Run[] }>(ctx, 'POST', '/api/runs', {
+			body: { scripts: items.map((item) => item.script), ...items[0].target },
+		});
+	} catch (error) {
+		// Default with several paired browsers: the API refuses (409), as the choice is ambiguous,
+		// and names them. Not an API failure but a setting to change: its sentence as is, and where.
+		const apiError = error instanceof NodeApiError ? error : new NodeApiError(ctx.getNode(), error as JsonObject);
+		if ('browser' in items[0].target && apiError.httpCode === '409') {
+			throw new NodeOperationError(ctx.getNode(), apiError.message, {
+				description: 'Choose your browser by name in Device.',
+			});
+		}
+		throw apiError;
+	}
 	let { runs } = batch;
 	const deadline = Date.now() + MAX_WAIT_MINUTES * 60_000;
 	while (runs.some((run) => run.finished_at === null)) {
