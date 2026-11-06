@@ -1,6 +1,7 @@
 import {
 	NodeApiError,
 	type FieldType,
+	type IExecuteFunctions,
 	type ILoadOptionsFunctions,
 	type INodeListSearchResult,
 	type INodePropertyOptions,
@@ -156,14 +157,33 @@ export async function getHandles(this: ILoadOptionsFunctions): Promise<INodeProp
 // it, and refuses by name when there is none or several, listing them.
 export const PAIRED_BROWSER = 'extension';
 
+interface Device {
+	id: string;
+	name: string | null;
+	last_seen_at: string | null;
+}
+
+// The run's target for the Default device. With one paired browser or none, the API picks it and
+// says what is wrong. With several, the API refuses to guess, so the node takes the one seen last:
+// the browser open now, most likely.
+export async function defaultDeviceTarget(
+	ctx: IExecuteFunctions,
+): Promise<{ browser: string } | { device_id: string }> {
+	const devices = await reduckRequest<Device[]>(ctx, 'GET', '/api/devices');
+	if (devices.length < 2) return { browser: PAIRED_BROWSER };
+	const seen = (device: Device) => (device.last_seen_at ? Date.parse(device.last_seen_at) : 0);
+	const latest = devices.reduce((best, device) => (seen(device) > seen(best) ? device : best));
+	return { device_id: latest.id };
+}
+
 // The paired browsers a run can use: the API's own pick, or one of them by name.
 export async function getDevices(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-	const devices = await reduckRequest<Array<{ id: string; name: string | null }>>(this, 'GET', '/api/devices');
+	const devices = await reduckRequest<Device[]>(this, 'GET', '/api/devices');
 	return [
 		{
 			name: 'Default',
 			value: PAIRED_BROWSER,
-			description: 'Your only paired browser. When you have more than one, choose one by name.',
+			description: 'Your paired browser. When you have more than one, the one seen last.',
 		},
 		...devices.map((device) => ({ name: device.name ?? device.id, value: device.id })),
 	];

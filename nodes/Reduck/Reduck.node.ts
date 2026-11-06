@@ -11,7 +11,7 @@ import {
 	type JsonObject,
 } from 'n8n-workflow';
 
-import { FILE_FIELD, PAIRED_BROWSER, getDevices, getHandles, getScriptArgs, searchScripts, type Script } from './methods';
+import { FILE_FIELD, PAIRED_BROWSER, defaultDeviceTarget, getDevices, getHandles, getScriptArgs, searchScripts, type Script } from './methods';
 import { parseScriptAddress, reduckRequest, reduckUrl, scriptPath, type Run } from './transport';
 
 const POLL_MS = 2000;
@@ -155,7 +155,7 @@ export class Reduck implements INodeType {
 				typeOptions: { loadOptionsMethod: 'getDevices' },
 				default: PAIRED_BROWSER,
 				description:
-					'The paired device to run on. Choose one by name when you have more than one. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+					'The paired device to run on. Default is your paired browser, or with several the one seen last. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 				displayOptions: { show: { browser: [PAIRED_BROWSER] } },
 			},
 			{
@@ -232,9 +232,12 @@ export class Reduck implements INodeType {
 		// One request has one browser target, and stays under the API's 4.5 MB: a file goes alone.
 		const groups = new Map<string, ItemRun[]>();
 		const loggedIn = new Map<string, Promise<boolean>>();
+		// The Default device's target, read once per execution.
+		let defaultTarget: Promise<IDataObject> | undefined;
+		const defaultDevice = () => (defaultTarget ??= defaultDeviceTarget(this));
 		for (let i = 0; i < items.length; i++) {
 			try {
-				const item = await itemRunOf(this, i, loggedIn);
+				const item = await itemRunOf(this, i, loggedIn, defaultDevice);
 				const key = item.script.files ? `item ${i}` : JSON.stringify(item.target);
 				groups.set(key, [...(groups.get(key) ?? []), item]);
 			} catch (error) {
@@ -303,11 +306,13 @@ async function runBatch(ctx: IExecuteFunctions, items: ItemRun[]): Promise<Run[]
 	return runs;
 }
 
-// `loggedIn` holds whether each script needs a sign-in, read once per execution.
+// `loggedIn` holds whether each script needs a sign-in, read once per execution, and
+// `defaultDevice` where the Default device runs.
 async function itemRunOf(
 	ctx: IExecuteFunctions,
 	i: number,
 	loggedIn: Map<string, Promise<boolean>>,
+	defaultDevice: () => Promise<IDataObject>,
 ): Promise<ItemRun> {
 	const address = ctx.getNodeParameter('script', i, '', { extractValue: true }) as string;
 	const script = await parseScriptAddress(ctx, address, ctx.getNodeParameter('handle', i, '') as string);
@@ -357,7 +362,7 @@ async function itemRunOf(
 		target: managed
 			? { ...(region ? { region } : {}), ...(country.trim() ? { country: country.trim() } : {}) }
 			: deviceId === PAIRED_BROWSER
-				? { browser: PAIRED_BROWSER }
+				? await defaultDevice()
 				: { device_id: deviceId },
 	};
 }
