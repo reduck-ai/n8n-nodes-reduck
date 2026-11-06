@@ -1,6 +1,7 @@
 import {
 	NodeApiError,
 	type FieldType,
+	type IExecuteFunctions,
 	type ILoadOptionsFunctions,
 	type INodeListSearchResult,
 	type INodePropertyOptions,
@@ -156,15 +157,60 @@ export async function getHandles(this: ILoadOptionsFunctions): Promise<INodeProp
 // it, and refuses by name when there is none or several, listing them.
 export const PAIRED_BROWSER = 'extension';
 
-// The paired browsers a run can use: the API's own pick, or one of them by name.
+// The parts of GET /api/devices this package reads.
+interface Device {
+	id: string;
+	name: string | null;
+	kind?: string;
+	online?: boolean;
+	last_seen_at?: string | null;
+}
+
+// The account's paired browsers (the extension), most likely in use first: online, then the one
+// seen last.
+const pairedBrowsers = (devices: Device[]) =>
+	devices
+		.filter((device) => !device.kind || device.kind === PAIRED_BROWSER)
+		.sort(
+			(a, b) =>
+				Number(!!b.online) - Number(!!a.online) ||
+				(b.last_seen_at ?? '').localeCompare(a.last_seen_at ?? ''),
+		);
+
+// What Default runs on. With one paired browser or none, the API picks or says why it cannot
+// (null). With several, the API refuses to guess, so Default names the one most likely in use.
+// Read once per execution.
+const defaultDevices = new WeakMap<IExecuteFunctions, Promise<string | null>>();
+export function defaultDevice(ctx: IExecuteFunctions): Promise<string | null> {
+	if (!defaultDevices.has(ctx))
+		defaultDevices.set(
+			ctx,
+			reduckRequest<Device[]>(ctx, 'GET', '/api/devices').then((devices) => {
+				const browsers = pairedBrowsers(devices);
+				return browsers.length > 1 ? browsers[0].id : null;
+			}),
+		);
+	return defaultDevices.get(ctx)!;
+}
+
+// The paired browsers a run can use: Default, or one of them by name. Browsers often share a name
+// ("Google Chrome — macOS"), so a shared name gets the start of the id and when it was last seen.
 export async function getDevices(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-	const devices = await reduckRequest<Array<{ id: string; name: string | null }>>(this, 'GET', '/api/devices');
+	const browsers = pairedBrowsers(await reduckRequest<Device[]>(this, 'GET', '/api/devices'));
+	const named = (device: Device) => device.name ?? device.id;
+	const shared = (device: Device) => browsers.filter((other) => named(other) === named(device)).length > 1;
 	return [
 		{
 			name: 'Default',
 			value: PAIRED_BROWSER,
-			description: 'Your only paired browser. When you have more than one, choose one by name.',
+			description: 'Your paired browser. With several, the one online or seen most recently.',
 		},
-		...devices.map((device) => ({ name: device.name ?? device.id, value: device.id })),
+		...browsers.map((device) => ({
+			name: shared(device) ? `${named(device)} (${device.id.slice(0, 8)})` : named(device),
+			value: device.id,
+			...(device.last_seen_at
+				? { description: `${device.online ? 'Online' : 'Last seen'} ${device.last_seen_at.slice(0, 16).replace('T', ' ')} UTC` }
+				: {}),
+		})),
 	];
 }

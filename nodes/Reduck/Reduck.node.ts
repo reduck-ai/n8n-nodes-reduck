@@ -11,7 +11,16 @@ import {
 	type JsonObject,
 } from 'n8n-workflow';
 
-import { FILE_FIELD, PAIRED_BROWSER, getDevices, getHandles, getScriptArgs, searchScripts, type Script } from './methods';
+import {
+	FILE_FIELD,
+	PAIRED_BROWSER,
+	defaultDevice,
+	getDevices,
+	getHandles,
+	getScriptArgs,
+	searchScripts,
+	type Script,
+} from './methods';
 import { parseScriptAddress, reduckRequest, reduckUrl, scriptPath, type Run } from './transport';
 
 const POLL_MS = 2000;
@@ -155,7 +164,7 @@ export class Reduck implements INodeType {
 				typeOptions: { loadOptionsMethod: 'getDevices' },
 				default: PAIRED_BROWSER,
 				description:
-					'The paired device to run on. Choose one by name when you have more than one. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+					'The paired device to run on. Default is the one online or seen most recently. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 				displayOptions: { show: { browser: [PAIRED_BROWSER] } },
 			},
 			{
@@ -348,7 +357,8 @@ async function itemRunOf(
 			});
 	}
 	const { region, country = '' } = ctx.getNodeParameter('options', i, {}) as { region?: string; country?: string };
-	const deviceId = managed ? '' : (ctx.getNodeParameter('deviceId', i) as string);
+	const chosen = managed ? '' : (ctx.getNodeParameter('deviceId', i) as string);
+	const deviceId = chosen === PAIRED_BROWSER ? ((await defaultDevice(ctx)) ?? PAIRED_BROWSER) : chosen;
 
 	return {
 		i,
