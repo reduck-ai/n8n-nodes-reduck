@@ -45,7 +45,8 @@ To choose between the two, see the [FAQ](#faq).
 
 ## Requirements
 
-- An [n8n](https://docs.n8n.io/hosting/) instance where you can install community nodes.
+- An [n8n Cloud](https://app.n8n.cloud/register) workspace, or a [self-hosted n8n](https://docs.n8n.io/hosting/)
+  where you can install community nodes.
 - A [Reduck account](https://reduck.ai/#signin).
 - The [Reduck extension](https://chromewebstore.google.com/detail/reduck/koccidjchcojlmgkdhibpgjbnhcoopio),
   paired with your account (see [pairing](https://docs.reduck.ai/#quick-start)). Scripts run on
@@ -55,9 +56,31 @@ To choose between the two, see the [FAQ](#faq).
 
 <!-- tabs -->
 
+### n8n Cloud
+
+Reduck is a verified node, so n8n Cloud can install it from the editor.
+
+1. **Find the node.** In a workflow, select **+**, then search `Reduck`:
+
+   ![The n8n node panel: the search finds the verified Reduck node](https://raw.githubusercontent.com/reduck-ai/n8n-nodes-reduck/main/images/cloud-search.png)
+
+2. **Install it.** Select **Reduck**, then **Install node**. Then select the **Run script** action.
+
+3. **Add your API key.** In **Credential**, select **Connect to Reduck**, paste a key from
+   [API keys](https://reduck.ai/api-keys?utm_source=n8n&utm_medium=readme), and select **Save**:
+
+   ![The Reduck credential: one API Key field](https://raw.githubusercontent.com/reduck-ai/n8n-nodes-reduck/main/images/cloud-api-key.png)
+
+4. **Run a script.** In **Script**, search `ai overview` and select **Get Google AI Overview**.
+   In **query**, type a search, for example `best crm for small business`. In **Browser**,
+   select **Managed Browser** if your extension is not paired. Then select **Execute step**.
+   `result` holds the overview's answer and the pages it cites:
+
+   ![The Reduck node after Execute step on a managed browser: the run succeeded, and result holds the overview's answer](https://raw.githubusercontent.com/reduck-ai/n8n-nodes-reduck/main/images/cloud-run.png)
+
 ### CLI
 
-1. **Stop n8n, then install the node.** You need n8n 2 or later:
+1. **Stop n8n, then install the node.** You need n8n 2 or later, which runs on Node.js 24 or later:
 
    ```bash
    mkdir -p ~/.n8n/nodes && cd ~/.n8n/nodes && npm install @reduck-ai/n8n-nodes-reduck
@@ -113,9 +136,9 @@ To choose between the two, see the [FAQ](#faq).
    [API keys](https://reduck.ai/api-keys?utm_source=n8n&utm_medium=readme).
 
 3. **Run a script.** In **Script**, search `ai overview` and select **Get Google AI Overview**.
-   In **query**, type a search, for example `best crm for small business`. Then select
-   **Execute step**. The script runs on your paired browser, and `result` holds the overview's
-   answer and the pages it cites:
+   In **query**, type a search, for example `best crm for small business`. If you paired more
+   than one browser, select yours in **Device**. Then select **Execute step**. The script runs on
+   your paired browser, and `result` holds the overview's answer and the pages it cites:
 
    ![The Reduck node after Execute step: the run succeeded, and result holds the overview's answer](https://raw.githubusercontent.com/reduck-ai/n8n-nodes-reduck/main/images/quick-start-run.png)
 
