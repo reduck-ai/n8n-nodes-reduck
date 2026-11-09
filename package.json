@@ -42,7 +42,8 @@
 			"dist/credentials/ReduckApi.credentials.js"
 		],
 		"nodes": [
-			"dist/nodes/Reduck/Reduck.node.js"
+			"dist/nodes/Reduck/Reduck.node.js",
+			"dist/nodes/Reduck/ReduckTrigger.node.js"
 		]
 	},
 	"devDependencies": {

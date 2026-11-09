@@ -4,10 +4,11 @@ import {
 	type IExecuteFunctions,
 	type IHttpRequestMethods,
 	type ILoadOptionsFunctions,
+	type IPollFunctions,
 	type JsonObject,
 } from 'n8n-workflow';
 
-type Ctx = IExecuteFunctions | ILoadOptionsFunctions;
+type Ctx = IExecuteFunctions | ILoadOptionsFunctions | IPollFunctions;
 
 // The Reduck environment the credential names: its API and its pages share this origin. A
 // credential saved before the URL field existed has none, and means production.

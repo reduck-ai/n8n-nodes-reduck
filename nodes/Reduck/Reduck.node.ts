@@ -12,6 +12,7 @@ import {
 } from 'n8n-workflow';
 
 import { FILE_FIELD, PAIRED_BROWSER, getDevices, getHandles, getScriptArgs, searchScripts, type Script } from './methods';
+import { REVIEW_PROPERTIES, getOwners, review, searchQueues } from './review';
 import { parseScriptAddress, reduckRequest, reduckUrl, scriptPath, type Run } from './transport';
 
 const POLL_MS = 2000;
@@ -36,7 +37,7 @@ export class Reduck implements INodeType {
 		icon: { light: 'file:reduck.svg', dark: 'file:reduck.dark.svg' },
 		group: ['transform'],
 		version: 1,
-		subtitle: '={{$parameter["script"].value}}',
+		subtitle: '={{$parameter["resource"] === "review" ? $parameter["operation"] : $parameter["script"].value}}',
 		description: 'Run Reduck browser scripts on any website',
 		defaults: { name: 'Reduck' },
 		usableAsTool: true,
@@ -44,12 +45,24 @@ export class Reduck implements INodeType {
 		outputs: [NodeConnectionTypes.Main],
 		credentials: [{ name: 'reduckApi', required: true }],
 		properties: [
-			// The one thing the node does. It names the action that the nodes panel and an AI agent show.
+			{
+				displayName: 'Resource',
+				name: 'resource',
+				type: 'options',
+				noDataExpression: true,
+				options: [
+					{ name: 'Script', value: 'script' },
+					{ name: 'Review', value: 'review' },
+				],
+				default: 'script',
+			},
+			// It names the action that the nodes panel and an AI agent show.
 			{
 				displayName: 'Operation',
 				name: 'operation',
 				type: 'options',
 				noDataExpression: true,
+				displayOptions: { show: { resource: ['script'] } },
 				options: [
 					{
 						name: 'Run',
@@ -66,6 +79,7 @@ export class Reduck implements INodeType {
 				type: 'options',
 				typeOptions: { loadOptionsMethod: 'getHandles' },
 				default: '',
+				displayOptions: { show: { resource: ['script'] } },
 				description:
 					'The owner of the script. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 			},
@@ -76,6 +90,7 @@ export class Reduck implements INodeType {
 				default: { mode: 'list', value: '' },
 				required: true,
 				description: 'The script to run',
+				displayOptions: { show: { resource: ['script'] } },
 				// n8n empties the field when the handle changes.
 				typeOptions: { loadOptionsDependsOn: ['handle'] },
 				modes: [
@@ -125,7 +140,7 @@ export class Reduck implements INodeType {
 						refreshStaleSchemaOnOpen: true,
 					},
 				},
-				displayOptions: { hide: { script: [''] } },
+				displayOptions: { show: { resource: ['script'] }, hide: { script: [''] } },
 			},
 			// The browser comes first, as the API's `browser`, then what fits it: the device, or the
 			// managed browser's options.
@@ -147,6 +162,7 @@ export class Reduck implements INodeType {
 				],
 				default: PAIRED_BROWSER,
 				description: 'Where the script runs',
+				displayOptions: { show: { resource: ['script'] } },
 			},
 			{
 				displayName: 'Device Name or ID',
@@ -156,7 +172,7 @@ export class Reduck implements INodeType {
 				default: PAIRED_BROWSER,
 				description:
 					'The paired device to run on. Choose one by name when you have more than one. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
-				displayOptions: { show: { browser: [PAIRED_BROWSER] } },
+				displayOptions: { show: { resource: ['script'], browser: [PAIRED_BROWSER] } },
 			},
 			{
 				displayName: 'Options',
@@ -191,7 +207,7 @@ export class Reduck implements INodeType {
 							'The ISO 3166 alpha-2 code of the country the managed browser connects to the site from, through a residential proxy. Use it for a site that changes by country. Leave it empty to connect from the datacenter.',
 					},
 				],
-				displayOptions: { show: { browser: ['managed'] } },
+				displayOptions: { show: { resource: ['script'], browser: ['managed'] } },
 			},
 			{
 				displayName: 'Simplify',
@@ -199,14 +215,16 @@ export class Reduck implements INodeType {
 				type: 'boolean',
 				default: true,
 				description: 'Whether to return a simplified version of the response instead of the raw data',
+				displayOptions: { show: { resource: ['script'] } },
 			},
+			...REVIEW_PROPERTIES,
 		],
 	};
 
 	methods = {
-		listSearch: { searchScripts },
+		listSearch: { searchQueues, searchScripts },
 		resourceMapping: { getScriptArgs },
-		loadOptions: { getDevices, getHandles },
+		loadOptions: { getDevices, getHandles, getOwners },
 	};
 
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
@@ -228,6 +246,17 @@ export class Reduck implements INodeType {
 				pairedItem: { item: i },
 			};
 		};
+
+		if (this.getNodeParameter('resource', 0, 'script') === 'review') {
+			for (let i = 0; i < items.length; i++) {
+				try {
+					out[i] = { json: await review(this, i), pairedItem: { item: i } };
+				} catch (error) {
+					fail(error, i);
+				}
+			}
+			return [out];
+		}
 
 		// One request has one browser target, and stays under the API's 4.5 MB: a file goes alone.
 		const groups = new Map<string, ItemRun[]>();
