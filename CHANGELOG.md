@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
+#### [0.2.36](https://github.com/reduck-ai/n8n-nodes-reduck/compare/0.2.35...0.2.36)
+
+- feat: a test credential carries the Vercel protection bypass, for staging [`87fb1cc`](https://github.com/reduck-ai/n8n-nodes-reduck/commit/87fb1ccc24c3d928f99ccca2ecbabac7146e2e61)
+
 #### [0.2.35](https://github.com/reduck-ai/n8n-nodes-reduck/compare/0.2.34...0.2.35)
+
+> 6 November 2026
 
 - fix: Default with several paired browsers is a setting error, with the API's sentence [`#11`](https://github.com/reduck-ai/n8n-nodes-reduck/pull/11)
 
