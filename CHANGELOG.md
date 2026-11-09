@@ -2,7 +2,14 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
+#### [0.2.37](https://github.com/reduck-ai/n8n-nodes-reduck/compare/0.2.36...0.2.37)
+
+- fix: n8n-workflow is an optional peer, so npm installs no copy of its own [`4264046`](https://github.com/reduck-ai/n8n-nodes-reduck/commit/4264046dc35a7a95714dc8eadae7697d716b77dc)
+- feat: requests name the node in their User-Agent [`41d4501`](https://github.com/reduck-ai/n8n-nodes-reduck/commit/41d45015da0592f00a568bb0d6cf9da54690d8ef)
+
 #### [0.2.36](https://github.com/reduck-ai/n8n-nodes-reduck/compare/0.2.35...0.2.36)
+
+> 9 November 2026
 
 - feat: a test credential carries the Vercel protection bypass, for staging [`87fb1cc`](https://github.com/reduck-ai/n8n-nodes-reduck/commit/87fb1ccc24c3d928f99ccca2ecbabac7146e2e61)
 
