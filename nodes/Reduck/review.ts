@@ -74,11 +74,31 @@ export const REVIEW_PROPERTIES: INodeProperties[] = [
 		displayOptions: show,
 	},
 	{
+		displayName: 'Review CSS',
+		name: 'css',
+		type: 'string',
+		typeOptions: { rows: 6 },
+		default: '',
+		description:
+			'The look of the evidence on the review page. Scope it under .rv-evidence. A change here becomes the next version of the prompt.',
+		displayOptions: show,
+	},
+	{
 		displayName: 'Input',
 		name: 'input',
 		type: 'json',
 		default: '={{ $json }}',
-		description: 'What the model judges, and what the reviewer reads. A "title" is its headline.',
+		description: 'The data the decision holds. The trigger gives it back.',
+		displayOptions: show,
+	},
+	{
+		displayName: 'Evidence',
+		name: 'evidence',
+		type: 'string',
+		typeOptions: { rows: 6 },
+		default: '',
+		description:
+			'What the model reads and the reviewer sees: Markdown, with &lt;div&gt;, &lt;span&gt; and other simple tags that take a class. Empty: made from Input, its "title" as the headline.',
 		displayOptions: show,
 	},
 	{
@@ -161,15 +181,21 @@ export async function prepare(ctx: IExecuteFunctions): Promise<App> {
 	const name = ctx.getNodeParameter('prompt', 0) as string;
 	const template = ctx.getNodeParameter('instructions', 0) as string;
 	const output = json(ctx, 'answer', 0);
+	const css = ctx.getNodeParameter('css', 0, '') as string;
 	const prompts = `${await door(ctx, app)}/prompts`;
 	const { prompts: versions } = await reduckRequest<{
-		prompts: Array<{ live: boolean; template: string; output: unknown }>;
+		prompts: Array<{ live: boolean; template: string; output: unknown; css: string | null }>;
 	}>(ctx, 'GET', prompts, { qs: { name } });
 	const live = versions.find((version) => version.live);
-	if (live?.template !== template || canonical(live.output) !== canonical(output))
-		// Any input is accepted: what each item holds is the workflow's.
+	if (
+		live?.template !== template ||
+		canonical(live.output) !== canonical(output) ||
+		(live.css ?? '') !== css
+	)
+		// Any input is accepted: what each item holds is the workflow's. An empty css clears it, where
+		// null would keep the live version's.
 		await reduckRequest(ctx, 'POST', prompts, {
-			body: { name, template, input: { type: 'object' }, output, promote: true },
+			body: { name, template, input: { type: 'object' }, output, css, promote: true },
 		});
 	return app;
 }
@@ -207,7 +233,7 @@ export async function review(ctx: IExecuteFunctions, app: App, i: number): Promi
 		body: {
 			prompt: ctx.getNodeParameter('prompt', 0),
 			input,
-			evidence: evidence(input),
+			evidence: (ctx.getNodeParameter('evidence', i, '') as string) || evidence(input),
 			explain: 'text',
 			tries,
 		},
