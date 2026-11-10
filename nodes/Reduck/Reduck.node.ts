@@ -12,7 +12,7 @@ import {
 } from 'n8n-workflow';
 
 import { FILE_FIELD, PAIRED_BROWSER, getDevices, getHandles, getScriptArgs, searchScripts, type Script } from './methods';
-import { REVIEW_PROPERTIES, review } from './review';
+import { REVIEW_PROPERTIES, prepare, review } from './review';
 import { parseScriptAddress, reduckRequest, reduckUrl, scriptPath, type Run } from './transport';
 
 const POLL_MS = 2000;
@@ -37,7 +37,7 @@ export class Reduck implements INodeType {
 		icon: { light: 'file:reduck.svg', dark: 'file:reduck.dark.svg' },
 		group: ['transform'],
 		version: 1,
-		subtitle: '={{$parameter["resource"] === "review" ? $parameter["operation"] : $parameter["script"].value}}',
+		subtitle: '={{$parameter["resource"] === "review" ? $parameter["prompt"] : $parameter["script"].value}}',
 		description: 'Run Reduck browser scripts on any website',
 		defaults: { name: 'Reduck' },
 		usableAsTool: true,
@@ -248,9 +248,10 @@ export class Reduck implements INodeType {
 		};
 
 		if (this.getNodeParameter('resource', 0, 'script') === 'review') {
+			const app = prepare(this);
 			for (let i = 0; i < items.length; i++) {
 				try {
-					out[i] = { json: await review(this, i), pairedItem: { item: i } };
+					out[i] = { json: await review(this, await app, i), pairedItem: { item: i } };
 				} catch (error) {
 					fail(error, i);
 				}

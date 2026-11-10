@@ -6,7 +6,7 @@ import {
 	type IPollFunctions,
 } from 'n8n-workflow';
 
-import { QUEUE, decisionIds, findQueue, ownHandle, readDecision, toItem } from './review';
+import { PROMPT, decisionIds, findApp, readDecision, toItem } from './review';
 
 export class ReduckTrigger implements INodeType {
 	description: INodeTypeDescription = {
@@ -15,14 +15,14 @@ export class ReduckTrigger implements INodeType {
 		icon: { light: 'file:reduck.svg', dark: 'file:reduck.dark.svg' },
 		group: ['trigger'],
 		version: 1,
-		subtitle: '={{$parameter["queue"]}}',
+		subtitle: '={{$parameter["prompt"]}}',
 		description: 'Starts the workflow when a person approves or rejects a review on Reduck',
 		defaults: { name: 'Reduck Trigger' },
 		polling: true,
 		inputs: [],
 		outputs: [NodeConnectionTypes.Main],
 		credentials: [{ name: 'reduckApi', required: true }],
-		properties: [{ ...QUEUE, description: 'The name of the review queue' }],
+		properties: [{ ...PROMPT, description: 'The name of the prompt in your n8n_app' }],
 	};
 
 	// Each ruling once. Flock lists decisions by id, not by the time of their ruling, so what is
@@ -31,27 +31,27 @@ export class ReduckTrigger implements INodeType {
 	// ruled. The first poll only records them, so the rulings made before the workflow was
 	// activated do not start it.
 	async poll(this: IPollFunctions): Promise<INodeExecutionData[][] | null> {
-		const name = this.getNodeParameter('queue', '') as string;
-		const app = await findQueue(this, name, await ownHandle(this));
+		const prompt = this.getNodeParameter('prompt', '') as string;
+		const app = await findApp(this);
 		if (!app) return null;
 
 		// A test fetch shows the last ruling and moves nothing.
 		if (this.getMode() === 'manual') {
-			const [id] = await decisionIds(this, app, { rulable: false, sort: 'newest', limit: 1 });
+			const [id] = await decisionIds(this, app, { prompt, rulable: false, sort: 'newest', limit: 1 });
 			if (id === undefined) return null;
 			return [[{ json: await toItem(this, app, await readDecision(this, app, id)) }]];
 		}
 
 		const state = this.getWorkflowStaticData('node') as { waiting?: number[]; last?: number };
-		const waiting = await decisionIds(this, app, { rulable: true });
+		const waiting = await decisionIds(this, app, { prompt, rulable: true });
 		if (state.waiting === undefined) {
-			const [newest = 0] = await decisionIds(this, app, { sort: 'newest', limit: 1 });
+			const [newest = 0] = await decisionIds(this, app, { prompt, sort: 'newest', limit: 1 });
 			Object.assign(state, { waiting, last: newest });
 			return null;
 		}
 		const ruledSince = [
 			...state.waiting.filter((id) => !waiting.includes(id)),
-			...(await decisionIds(this, app, { rulable: false, cursor: String(state.last) })),
+			...(await decisionIds(this, app, { prompt, rulable: false, cursor: String(state.last) })),
 		];
 		const rulings = [];
 		for (const id of ruledSince) {

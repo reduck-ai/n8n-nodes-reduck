@@ -13,7 +13,7 @@
 			"parameters": {
 				"width": 420,
 				"height": 440,
-				"content": "## Reddit replies, reviewed\n\nEvery morning, the model drafts a reply to each new thread of r/n8n. You approve, edit or reject each draft on Reduck, and the approved ones are posted from your Chrome.\n\n**1. Select your Reduck credential** in the four Reduck nodes.\n\n**2. Write your instructions** in **Request review**. The first run creates the queue. A later change to the instructions becomes the next version of the prompt.\n\n**3. Publish.** Each morning the drafts wait in your queue: open the `review_url` of an item to review them.\n\nThe threads are read and the comments posted from your paired Chrome, signed in to Reddit: keep it open. Reddit blocks the managed browser."
+				"content": "## Reddit replies, reviewed\n\nEvery morning, the model drafts a reply to each new thread of r/n8n. You approve, edit or reject each draft on Reduck, and the approved ones are posted from your Chrome.\n\n**1. Select your Reduck credential** in the four Reduck nodes.\n\n**2. Write your instructions** in **Request review**. The first run creates your n8n_app and this prompt. A later change to the instructions becomes the next version of the prompt.\n\n**3. Publish.** Each morning the drafts wait in your n8n_app: open the `review_url` of an item to review them.\n\nThe threads are read and the comments posted from your paired Chrome, signed in to Reddit: keep it open. Reddit blocks the managed browser."
 			}
 		},
 		{
@@ -122,7 +122,7 @@
 			"parameters": {
 				"resource": "review",
 				"operation": "request",
-				"queue": "Reddit replies",
+				"prompt": "Reddit replies",
 				"instructions": "You read a new thread of r/n8n. Write a short, friendly reply of 2 to 4 sentences that answers the question it asks. Give a concrete next step. Do not sell anything, and put no link in the reply.",
 				"answer": "{\n  \"type\": \"object\",\n  \"required\": [\"reply\"],\n  \"properties\": { \"reply\": { \"type\": \"string\" } }\n}",
 				"input": "={{ { title: $json.title, url: $json.url, body: $json.body } }}",
@@ -147,7 +147,7 @@
 						}
 					]
 				},
-				"queue": "Reddit replies"
+				"prompt": "Reddit replies"
 			}
 		},
 		{

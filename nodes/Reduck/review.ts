@@ -6,26 +6,25 @@ import {
 	type IPollFunctions,
 } from 'n8n-workflow';
 
-import { flockUrl, reduckRequest } from './transport';
+import { flockUrl, ownHandle, reduckRequest } from './transport';
 
-// A review queue is an install of the Reduck app `reduck/n8n_app`, found by its name among the
-// account's apps: one prompt, and the decisions the model makes under it, which a person approves
-// or rejects on the app's page. This file only calls what Reduck already serves: its apps API, and
-// flock's `/api/apps/<id>/decide`, the door of the `reduck flock` CLI.
+// The account's install of the Reduck app `reduck/n8n_app` holds the prompts this node names, and
+// the decisions the model makes under them, which a person approves or rejects on the app's page.
+// This file only calls what Reduck already serves: its apps API, and flock's
+// `/api/apps/<id>/decide`, the door of the `reduck flock` CLI.
 
 const IMAGE = { handle: 'reduck', slug: 'n8n_app' };
-const PROMPT = 'review';
 
 type Ctx = IExecuteFunctions | IPollFunctions;
 
-export const QUEUE: INodeProperties = {
-	displayName: 'Queue',
-	name: 'queue',
+export const PROMPT: INodeProperties = {
+	displayName: 'Prompt',
+	name: 'prompt',
 	type: 'string',
 	default: '',
 	required: true,
 	placeholder: 'e.g. Reddit replies',
-	description: 'The name of the review queue. Request Review creates it when it does not exist.',
+	description: 'The name of the prompt in your n8n_app. Request Review creates it when it does not exist.',
 };
 
 const ANSWER = JSON.stringify(
@@ -53,7 +52,7 @@ export const REVIEW_PROPERTIES: INodeProperties[] = [
 		],
 		default: 'request',
 	},
-	{ ...QUEUE, displayOptions: show },
+	{ ...PROMPT, displayOptions: show },
 	{
 		displayName: 'Instructions',
 		name: 'instructions',
@@ -105,8 +104,6 @@ export const REVIEW_PROPERTIES: INodeProperties[] = [
 
 interface App {
 	id: string;
-	name: string;
-	owner: { handle: string };
 	image: { handle: string; slug: string } | null;
 }
 
@@ -116,32 +113,23 @@ interface Decision extends IDataObject {
 	ruledAt: string | null;
 }
 
-/** The queue's door on flock, and the page where a person reviews it. */
+/** The app's door on flock. */
 const door = async (ctx: Ctx, app: App) => `${await flockUrl(ctx)}/api/apps/${app.id}/decide`;
-const reviewUrl = async (ctx: Ctx, app: App) => `${await flockUrl(ctx)}/app/${app.id}/`;
 
-/** The account's queue of this name, if it has one. */
-export async function findQueue(ctx: Ctx, name: string, handle: string): Promise<App | undefined> {
+/** The account's n8n_app, if it has one. */
+export async function findApp(ctx: Ctx): Promise<App | undefined> {
+	const path = `/api/apps/${encodeURIComponent(await ownHandle(ctx))}`;
 	for (let page = 0; ; page++) {
 		const { data, has_next_page } = await reduckRequest<{ data: App[]; has_next_page: boolean }>(
 			ctx,
 			'GET',
-			'/api/apps',
+			path,
 			{ qs: { page, page_size: 100 } },
 		);
-		const queue = data.find(
-			(app) =>
-				app.name === name &&
-				app.owner.handle === handle &&
-				app.image?.handle === IMAGE.handle &&
-				app.image.slug === IMAGE.slug,
-		);
-		if (queue || !has_next_page) return queue;
+		const app = data.find((a) => a.image?.handle === IMAGE.handle && a.image.slug === IMAGE.slug);
+		if (app || !has_next_page) return app;
 	}
 }
-
-export const ownHandle = async (ctx: Ctx): Promise<string> =>
-	(await reduckRequest<{ handle: string | null }>(ctx, 'GET', '/api/me')).handle ?? '';
 
 // JSON with its keys in order: Postgres gives a stored schema back with its keys moved.
 const canonical = (value: unknown): string =>
@@ -160,40 +148,30 @@ const json = (ctx: IExecuteFunctions, name: string, i: number): IDataObject => {
 	}
 };
 
-// The queue and its prompt as the node states them, made or changed only when they differ. Once per
-// execution and per queue name: every item of a run is judged under the same version.
-const queues = new WeakMap<IExecuteFunctions, Map<string, Promise<App>>>();
-
-function ensureQueue(ctx: IExecuteFunctions, i: number): Promise<App> {
-	const name = ctx.getNodeParameter('queue', i) as string;
-	const made = queues.get(ctx) ?? new Map<string, Promise<App>>();
-	queues.set(ctx, made);
-	let queue = made.get(name);
-	if (!queue) {
-		queue = (async () => {
-			const handle = await ownHandle(ctx);
-			const app =
-				(await findQueue(ctx, name, handle)) ??
-				(await reduckRequest<App>(ctx, 'POST', `/api/apps/${encodeURIComponent(handle)}`, {
-					body: { image: IMAGE, name },
-				}));
-			const template = ctx.getNodeParameter('instructions', i) as string;
-			const output = json(ctx, 'answer', i);
-			const prompts = `${await door(ctx, app)}/prompts`;
-			const { prompts: versions } = await reduckRequest<{
-				prompts: Array<{ live: boolean; template: string; output: unknown }>;
-			}>(ctx, 'GET', prompts, { qs: { name: PROMPT } });
-			const live = versions.find((version) => version.live);
-			if (live?.template !== template || canonical(live.output) !== canonical(output))
-				// Any input is accepted: what each item holds is the workflow's.
-				await reduckRequest(ctx, 'POST', prompts, {
-					body: { name: PROMPT, template, input: { type: 'object' }, output, promote: true },
-				});
-			return app;
-		})();
-		made.set(name, queue);
-	}
-	return queue;
+/**
+ * The app, and its prompt as the first item states it, made or changed only when they differ: every
+ * item of an execution is judged under the same version.
+ */
+export async function prepare(ctx: IExecuteFunctions): Promise<App> {
+	const app =
+		(await findApp(ctx)) ??
+		(await reduckRequest<App>(ctx, 'POST', `/api/apps/${encodeURIComponent(await ownHandle(ctx))}`, {
+			body: { image: IMAGE },
+		}));
+	const name = ctx.getNodeParameter('prompt', 0) as string;
+	const template = ctx.getNodeParameter('instructions', 0) as string;
+	const output = json(ctx, 'answer', 0);
+	const prompts = `${await door(ctx, app)}/prompts`;
+	const { prompts: versions } = await reduckRequest<{
+		prompts: Array<{ live: boolean; template: string; output: unknown }>;
+	}>(ctx, 'GET', prompts, { qs: { name } });
+	const live = versions.find((version) => version.live);
+	if (live?.template !== template || canonical(live.output) !== canonical(output))
+		// Any input is accepted: what each item holds is the workflow's.
+		await reduckRequest(ctx, 'POST', prompts, {
+			body: { name, template, input: { type: 'object' }, output, promote: true },
+		});
+	return app;
 }
 
 // What the reviewer reads: the item's fields as a document, its title first as the headline.
@@ -208,7 +186,7 @@ const evidence = ({ title, ...fields }: IDataObject): string =>
 			),
 	].join('\n\n') || '(empty)';
 
-/** A decision as this node gives it, waiting or ruled. */
+/** A decision as this node gives it, waiting or ruled, with the page that lists its prompt's. */
 export const toItem = async (ctx: Ctx, app: App, decision: Decision): Promise<IDataObject> => ({
 	id: Number(decision.id),
 	verdict: decision.verdict,
@@ -216,23 +194,28 @@ export const toItem = async (ctx: Ctx, app: App, decision: Decision): Promise<ID
 	feedback: decision.feedback,
 	input: decision.input,
 	proposed: decision.proposed,
+	prompt: decision.prompt,
 	version: decision.version,
 	ruled_at: decision.ruledAt,
-	queue: app.name,
-	review_url: await reviewUrl(ctx, app),
+	review_url: `${await flockUrl(ctx)}/app/${app.id}/decisions?prompt=${encodeURIComponent(String(decision.prompt))}`,
 });
 
-export async function review(ctx: IExecuteFunctions, i: number): Promise<IDataObject> {
-	const app = await ensureQueue(ctx, i);
+export async function review(ctx: IExecuteFunctions, app: App, i: number): Promise<IDataObject> {
 	const input = json(ctx, 'input', i);
 	const { tries = 1 } = ctx.getNodeParameter('options', i, {}) as { tries?: number };
 	const decision = await reduckRequest<Decision>(ctx, 'POST', await door(ctx, app), {
-		body: { prompt: PROMPT, input, evidence: evidence(input), explain: 'text', tries },
+		body: {
+			prompt: ctx.getNodeParameter('prompt', 0),
+			input,
+			evidence: evidence(input),
+			explain: 'text',
+			tries,
+		},
 	});
 	return toItem(ctx, app, decision);
 }
 
-/** The ids of the queue's decisions that match, oldest first: every page, or with `limit` one. */
+/** The ids of the prompt's decisions that match, oldest first: every page, or with `limit` one. */
 export async function decisionIds(ctx: Ctx, app: App, qs: IDataObject): Promise<number[]> {
 	const ids: number[] = [];
 	for (let cursor: string | null | undefined; cursor !== null; ) {

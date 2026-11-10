@@ -58,6 +58,15 @@ export async function reduckRequest<T>(
 // The account's own handle, read once per execution or dropdown load.
 const ownHandles = new WeakMap<Ctx, Promise<string>>();
 
+export function ownHandle(ctx: Ctx): Promise<string> {
+	let handle = ownHandles.get(ctx);
+	if (!handle) {
+		handle = reduckRequest<{ handle: string | null }>(ctx, 'GET', '/api/me').then((me) => me.handle ?? '');
+		ownHandles.set(ctx, handle);
+	}
+	return handle;
+}
+
 // A script is addressed as "<handle>/<host>/<slug>", e.g. "reduck/google.com/get_ai_overview", or
 // as "<host>/<slug>" under `handle`: the account's own when it is empty, as the MCP's run_script.
 export async function parseScriptAddress(
@@ -66,14 +75,7 @@ export async function parseScriptAddress(
 	handle: string,
 ): Promise<{ handle: string; host: string; slug: string } | null> {
 	const parts = address.trim().split('/');
-	if (parts.length === 2) {
-		if (!handle && !ownHandles.has(ctx))
-			ownHandles.set(
-				ctx,
-				reduckRequest<{ handle: string | null }>(ctx, 'GET', '/api/me').then((me) => me.handle ?? ''),
-			);
-		parts.unshift(handle || ((await ownHandles.get(ctx)) ?? ''));
-	}
+	if (parts.length === 2) parts.unshift(handle || (await ownHandle(ctx)));
 	const [owner, host, slug] = parts;
 	if (!owner || !host || !slug || parts.length > 3) return null;
 	return { handle: owner, host, slug };
