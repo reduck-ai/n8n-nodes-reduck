@@ -234,7 +234,6 @@ export async function review(ctx: IExecuteFunctions, app: App, i: number): Promi
 			prompt: ctx.getNodeParameter('prompt', 0),
 			input,
 			evidence: (ctx.getNodeParameter('evidence', i, '') as string) || evidence(input),
-			explain: 'text',
 			tries,
 		},
 	});
