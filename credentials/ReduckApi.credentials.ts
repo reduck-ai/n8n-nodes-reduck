@@ -39,6 +39,12 @@ export class ReduckApi implements ICredentialType {
 			default: 'https://reduck.ai',
 		},
 		{
+			displayName: 'Flock URL',
+			name: 'flockUrl',
+			type: 'hidden',
+			default: 'https://flock.reduck.ai',
+		},
+		{
 			displayName: 'Protection Bypass',
 			name: 'bypass',
 			type: 'hidden',

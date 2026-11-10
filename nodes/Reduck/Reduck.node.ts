@@ -12,7 +12,7 @@ import {
 } from 'n8n-workflow';
 
 import { FILE_FIELD, PAIRED_BROWSER, getDevices, getHandles, getScriptArgs, searchScripts, type Script } from './methods';
-import { REVIEW_PROPERTIES, getOwners, review, searchQueues } from './review';
+import { REVIEW_PROPERTIES, review } from './review';
 import { parseScriptAddress, reduckRequest, reduckUrl, scriptPath, type Run } from './transport';
 
 const POLL_MS = 2000;
@@ -222,9 +222,9 @@ export class Reduck implements INodeType {
 	};
 
 	methods = {
-		listSearch: { searchQueues, searchScripts },
+		listSearch: { searchScripts },
 		resourceMapping: { getScriptArgs },
-		loadOptions: { getDevices, getHandles, getOwners },
+		loadOptions: { getDevices, getHandles },
 	};
 
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {

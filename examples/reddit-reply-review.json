@@ -1,0 +1,298 @@
+{
+	"name": "Reddit replies, reviewed (Reduck)",
+	"nodes": [
+		{
+			"id": "read-me",
+			"name": "Read me",
+			"type": "n8n-nodes-base.stickyNote",
+			"typeVersion": 1,
+			"position": [
+				-460,
+				-220
+			],
+			"parameters": {
+				"width": 420,
+				"height": 440,
+				"content": "## Reddit replies, reviewed\n\nEvery morning, the model drafts a reply to each new thread of r/n8n. You approve, edit or reject each draft on Reduck, and the approved ones are posted from your Chrome.\n\n**1. Select your Reduck credential** in the four Reduck nodes.\n\n**2. Write your instructions** in **Request review**. The first run creates the queue. A later change to the instructions becomes the next version of the prompt.\n\n**3. Publish.** Each morning the drafts wait in your queue: open the `review_url` of an item to review them.\n\nThe threads are read and the comments posted from your paired Chrome, signed in to Reddit: keep it open. Reddit blocks the managed browser."
+			}
+		},
+		{
+			"id": "every-morning",
+			"name": "Every morning",
+			"type": "n8n-nodes-base.scheduleTrigger",
+			"typeVersion": 1.2,
+			"position": [
+				0,
+				60
+			],
+			"parameters": {
+				"rule": {
+					"interval": [
+						{
+							"field": "days",
+							"triggerAtHour": 9
+						}
+					]
+				}
+			}
+		},
+		{
+			"id": "new-threads",
+			"name": "New threads",
+			"type": "@reduck-ai/n8n-nodes-reduck.reduck",
+			"typeVersion": 1,
+			"position": [
+				220,
+				60
+			],
+			"credentials": {},
+			"parameters": {
+				"script": {
+					"__rl": true,
+					"mode": "address",
+					"value": "reduck/reddit.com/get_subreddit_threads"
+				},
+				"args": {
+					"mappingMode": "defineBelow",
+					"value": {
+						"subreddit": "n8n",
+						"since": "24h",
+						"limit": 5
+					},
+					"matchingColumns": [],
+					"schema": [
+						{
+							"id": "subreddit",
+							"displayName": "subreddit",
+							"required": false,
+							"defaultMatch": false,
+							"display": true,
+							"type": "string",
+							"canBeUsedToMatch": false
+						},
+						{
+							"id": "since",
+							"displayName": "since",
+							"required": false,
+							"defaultMatch": false,
+							"display": true,
+							"type": "string",
+							"canBeUsedToMatch": false
+						},
+						{
+							"id": "limit",
+							"displayName": "limit",
+							"required": false,
+							"defaultMatch": false,
+							"display": true,
+							"type": "number",
+							"canBeUsedToMatch": false
+						}
+					]
+				},
+				"browser": "extension",
+				"deviceId": "extension",
+				"simplify": true
+			}
+		},
+		{
+			"id": "one-per-thread",
+			"name": "One item per thread",
+			"type": "n8n-nodes-base.splitOut",
+			"typeVersion": 1,
+			"position": [
+				440,
+				60
+			],
+			"parameters": {
+				"fieldToSplitOut": "result.threads",
+				"options": {}
+			}
+		},
+		{
+			"id": "request-review",
+			"name": "Request review",
+			"type": "@reduck-ai/n8n-nodes-reduck.reduck",
+			"typeVersion": 1,
+			"position": [
+				660,
+				60
+			],
+			"credentials": {},
+			"parameters": {
+				"resource": "review",
+				"operation": "request",
+				"queue": "Reddit replies",
+				"instructions": "You read a new thread of r/n8n. Write a short, friendly reply of 2 to 4 sentences that answers the question it asks. Give a concrete next step. Do not sell anything, and put no link in the reply.",
+				"answer": "{\n  \"type\": \"object\",\n  \"required\": [\"reply\"],\n  \"properties\": { \"reply\": { \"type\": \"string\" } }\n}",
+				"input": "={{ { title: $json.title, url: $json.url, body: $json.body } }}",
+				"options": {}
+			}
+		},
+		{
+			"id": "on-ruling",
+			"name": "On ruling",
+			"type": "@reduck-ai/n8n-nodes-reduck.reduckTrigger",
+			"typeVersion": 1,
+			"position": [
+				0,
+				320
+			],
+			"credentials": {},
+			"parameters": {
+				"pollTimes": {
+					"item": [
+						{
+							"mode": "everyMinute"
+						}
+					]
+				},
+				"queue": "Reddit replies"
+			}
+		},
+		{
+			"id": "approved",
+			"name": "Approved?",
+			"type": "n8n-nodes-base.if",
+			"typeVersion": 2,
+			"position": [
+				220,
+				320
+			],
+			"parameters": {
+				"conditions": {
+					"options": {
+						"caseSensitive": true,
+						"leftValue": "",
+						"typeValidation": "strict",
+						"version": 2
+					},
+					"conditions": [
+						{
+							"id": "verdict",
+							"leftValue": "={{ ['confirmed', 'edited'].includes($json.verdict) }}",
+							"rightValue": "",
+							"operator": {
+								"type": "boolean",
+								"operation": "true",
+								"singleValue": true
+							}
+						}
+					],
+					"combinator": "and"
+				},
+				"options": {}
+			}
+		},
+		{
+			"id": "post-comment",
+			"name": "Post comment",
+			"type": "@reduck-ai/n8n-nodes-reduck.reduck",
+			"typeVersion": 1,
+			"position": [
+				440,
+				300
+			],
+			"credentials": {},
+			"parameters": {
+				"script": {
+					"__rl": true,
+					"mode": "address",
+					"value": "reduck/reddit.com/post_comment"
+				},
+				"args": {
+					"mappingMode": "defineBelow",
+					"value": {
+						"url": "={{ $json.input.url }}",
+						"text": "={{ $json.output.reply }}"
+					},
+					"matchingColumns": [],
+					"schema": [
+						{
+							"id": "url",
+							"displayName": "url",
+							"required": true,
+							"defaultMatch": false,
+							"display": true,
+							"type": "string",
+							"canBeUsedToMatch": false
+						},
+						{
+							"id": "text",
+							"displayName": "text",
+							"required": true,
+							"defaultMatch": false,
+							"display": true,
+							"type": "string",
+							"canBeUsedToMatch": false
+						}
+					]
+				},
+				"browser": "extension",
+				"deviceId": "extension",
+				"simplify": true
+			}
+		}
+	],
+	"connections": {
+		"Every morning": {
+			"main": [
+				[
+					{
+						"node": "New threads",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"New threads": {
+			"main": [
+				[
+					{
+						"node": "One item per thread",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"One item per thread": {
+			"main": [
+				[
+					{
+						"node": "Request review",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"On ruling": {
+			"main": [
+				[
+					{
+						"node": "Approved?",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Approved?": {
+			"main": [
+				[
+					{
+						"node": "Post comment",
+						"type": "main",
+						"index": 0
+					}
+				],
+				[]
+			]
+		}
+	},
+	"settings": {
+		"executionOrder": "v1"
+	}
+}

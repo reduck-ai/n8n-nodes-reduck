@@ -2,47 +2,30 @@ import {
 	NodeOperationError,
 	type IDataObject,
 	type IExecuteFunctions,
-	type ILoadOptionsFunctions,
-	type INodeListSearchResult,
 	type INodeProperties,
-	type INodePropertyOptions,
 	type IPollFunctions,
 } from 'n8n-workflow';
 
-import { reduckRequest, reduckUrl } from './transport';
+import { flockUrl, reduckRequest } from './transport';
 
-// A review queue is a Reduck app with no page: its prompts, and the decisions the model makes under
-// them for a person to approve or reject on Reduck. Its address is "<owner handle>/<app id>".
+// A review queue is an install of the Reduck app `reduck/n8n_app`, found by its name among the
+// account's apps: one prompt, and the decisions the model makes under it, which a person approves
+// or rejects on the app's page. This file only calls what Reduck already serves: its apps API, and
+// flock's `/api/apps/<id>/decide`, the door of the `reduck flock` CLI.
 
-const show = (operation: string[]) => ({ show: { resource: ['review'], operation } });
+const IMAGE = { handle: 'reduck', slug: 'n8n_app' };
+const PROMPT = 'review';
+
+type Ctx = IExecuteFunctions | IPollFunctions;
 
 export const QUEUE: INodeProperties = {
 	displayName: 'Queue',
 	name: 'queue',
-	type: 'resourceLocator',
-	default: { mode: 'list', value: '' },
+	type: 'string',
+	default: '',
 	required: true,
-	modes: [
-		{
-			displayName: 'From List',
-			name: 'list',
-			type: 'list',
-			placeholder: 'Select a queue...',
-			typeOptions: { searchListMethod: 'searchQueues', searchable: true },
-		},
-		{
-			displayName: 'By Address',
-			name: 'address',
-			type: 'string',
-			placeholder: 'e.g. @you/6f1c…',
-			validation: [
-				{
-					type: 'regex',
-					properties: { regex: '^[^/\\s]+/[0-9a-f-]{36}$', errorMessage: 'Use the form handle/id' },
-				},
-			],
-		},
-	],
+	placeholder: 'e.g. Reddit replies',
+	description: 'The name of the review queue. Request Review creates it when it does not exist.',
 };
 
 const ANSWER = JSON.stringify(
@@ -51,64 +34,26 @@ const ANSWER = JSON.stringify(
 	2,
 );
 
+const show = { show: { resource: ['review'] } };
+
 export const REVIEW_PROPERTIES: INodeProperties[] = [
 	{
 		displayName: 'Operation',
 		name: 'operation',
 		type: 'options',
 		noDataExpression: true,
-		displayOptions: { show: { resource: ['review'] } },
+		displayOptions: show,
 		options: [
-			{
-				name: 'Create Queue',
-				value: 'create',
-				action: 'Create a review queue',
-				description: 'Create a queue and its first prompt',
-			},
 			{
 				name: 'Request Review',
 				value: 'request',
 				action: 'Request a review',
 				description: 'Ask the model for an answer, for a person to approve or reject on Reduck',
 			},
-			{
-				name: 'Update Prompt',
-				value: 'updatePrompt',
-				action: 'Update a prompt',
-				description: 'Make a new version of a prompt live. The earlier versions are kept.',
-			},
 		],
 		default: 'request',
 	},
-	{
-		displayName: 'Owner Name or ID',
-		name: 'owner',
-		type: 'options',
-		typeOptions: { loadOptionsMethod: 'getOwners' },
-		default: '',
-		required: true,
-		description:
-			'Who owns the queue: you, or a project whose members can then review. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
-		displayOptions: show(['create']),
-	},
-	{
-		displayName: 'Name',
-		name: 'name',
-		type: 'string',
-		default: '',
-		required: true,
-		displayOptions: show(['create']),
-	},
-	{ ...QUEUE, displayOptions: show(['request', 'updatePrompt']) },
-	{
-		displayName: 'Prompt',
-		name: 'prompt',
-		type: 'string',
-		default: 'reply',
-		required: true,
-		description: 'The name of the prompt. A request uses its live version.',
-		displayOptions: { show: { resource: ['review'] } },
-	},
+	{ ...QUEUE, displayOptions: show },
 	{
 		displayName: 'Instructions',
 		name: 'instructions',
@@ -116,8 +61,9 @@ export const REVIEW_PROPERTIES: INodeProperties[] = [
 		typeOptions: { rows: 6 },
 		default: '',
 		required: true,
-		description: 'What the model must do with each item',
-		displayOptions: show(['create', 'updatePrompt']),
+		description:
+			'What the model must do with each item. A change here becomes the next version of the prompt.',
+		displayOptions: show,
 	},
 	{
 		displayName: 'Answer Schema',
@@ -126,87 +72,84 @@ export const REVIEW_PROPERTIES: INodeProperties[] = [
 		default: ANSWER,
 		description:
 			'The JSON Schema of the answer. The reviewer edits the answer in a form made from it.',
-		displayOptions: show(['create', 'updatePrompt']),
+		displayOptions: show,
 	},
 	{
 		displayName: 'Input',
 		name: 'input',
 		type: 'json',
 		default: '={{ $json }}',
-		description: 'What the model judges, and what the reviewer reads',
-		displayOptions: show(['request']),
+		description: 'What the model judges, and what the reviewer reads. A "title" is its headline.',
+		displayOptions: show,
 	},
 	{
-		displayName: 'Reference',
-		name: 'reference',
-		type: 'string',
-		default: '',
-		placeholder: 'e.g. {{ $json.url }}',
-		description: 'Your own key for this item. The trigger gives it back with the ruling.',
-		displayOptions: show(['request']),
-	},
-	{
-		displayName: 'Tries',
-		name: 'tries',
-		type: 'number',
-		typeOptions: { minValue: 1, maxValue: 5 },
-		default: 1,
-		description:
-			'For an answer that is free text: how many drafts to make while a check of the draft against the instructions fails',
-		displayOptions: show(['request']),
+		displayName: 'Options',
+		name: 'options',
+		type: 'collection',
+		placeholder: 'Add Option',
+		default: {},
+		options: [
+			{
+				displayName: 'Tries',
+				name: 'tries',
+				type: 'number',
+				typeOptions: { minValue: 1, maxValue: 5 },
+				default: 1,
+				description:
+					'For an answer that is free text: how many drafts to make while a check of the draft against the instructions fails',
+			},
+		],
+		displayOptions: show,
 	},
 ];
-
-// The queue's API path, from its "<handle>/<id>" address.
-export const queuePath = (address: string): string => {
-	const [handle, id] = address.split('/');
-	return `/api/apps/${encodeURIComponent(handle)}/${id}`;
-};
-
-// Where a person reviews the queue's decisions.
-export const reviewUrl = async (
-	ctx: IExecuteFunctions | IPollFunctions,
-	address: string,
-): Promise<string> =>
-	`${await reduckUrl(ctx)}/projects/${address.replace('/', '/apps/')}/decisions`;
 
 interface App {
 	id: string;
 	name: string;
 	owner: { handle: string };
+	image: { handle: string; slug: string } | null;
 }
 
-export async function searchQueues(
-	this: ILoadOptionsFunctions,
-	filter?: string,
-): Promise<INodeListSearchResult> {
-	const { data } = await reduckRequest<{ data: App[] }>(this, 'GET', '/api/apps', {
-		qs: { page_size: 100 },
-	});
-	return {
-		results: data
-			.filter((app) => !filter || app.name.toLowerCase().includes(filter.toLowerCase()))
-			.map((app) => ({
-				name: `${app.name} (${app.owner.handle})`,
-				value: `${app.owner.handle}/${app.id}`,
-			})),
-	};
+// A decision as flock answers it.
+interface Decision extends IDataObject {
+	id: string;
+	ruledAt: string | null;
 }
 
-// The account itself, then its projects.
-export async function getOwners(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-	const me = await reduckRequest<{
-		handle: string | null;
-		projects: Array<{ handle: string; name: string }>;
-	}>(this, 'GET', '/api/me');
-	return [
-		...(me.handle ? [{ name: `You (${me.handle})`, value: me.handle }] : []),
-		...me.projects.map((project) => ({
-			name: `${project.name} (${project.handle})`,
-			value: project.handle,
-		})),
-	];
+/** The queue's door on flock, and the page where a person reviews it. */
+const door = async (ctx: Ctx, app: App) => `${await flockUrl(ctx)}/api/apps/${app.id}/decide`;
+const reviewUrl = async (ctx: Ctx, app: App) => `${await flockUrl(ctx)}/app/${app.id}/`;
+
+/** The account's queue of this name, if it has one. */
+export async function findQueue(ctx: Ctx, name: string, handle: string): Promise<App | undefined> {
+	for (let page = 0; ; page++) {
+		const { data, has_next_page } = await reduckRequest<{ data: App[]; has_next_page: boolean }>(
+			ctx,
+			'GET',
+			'/api/apps',
+			{ qs: { page, page_size: 100 } },
+		);
+		const queue = data.find(
+			(app) =>
+				app.name === name &&
+				app.owner.handle === handle &&
+				app.image?.handle === IMAGE.handle &&
+				app.image.slug === IMAGE.slug,
+		);
+		if (queue || !has_next_page) return queue;
+	}
 }
+
+export const ownHandle = async (ctx: Ctx): Promise<string> =>
+	(await reduckRequest<{ handle: string | null }>(ctx, 'GET', '/api/me')).handle ?? '';
+
+// JSON with its keys in order: Postgres gives a stored schema back with its keys moved.
+const canonical = (value: unknown): string =>
+	JSON.stringify(value, (_key, v: unknown) =>
+		v && typeof v === 'object' && !Array.isArray(v)
+			? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a.localeCompare(b)))
+			: v,
+	);
 
 const json = (ctx: IExecuteFunctions, name: string, i: number): IDataObject => {
 	const value = ctx.getNodeParameter(name, i);
@@ -217,46 +160,93 @@ const json = (ctx: IExecuteFunctions, name: string, i: number): IDataObject => {
 	}
 };
 
-// A live version of the prompt. Any input is accepted: what each item holds is the workflow's.
-const promptVersion = (ctx: IExecuteFunctions, i: number): IDataObject => ({
-	name: ctx.getNodeParameter('prompt', i) as string,
-	template: ctx.getNodeParameter('instructions', i) as string,
-	input: { type: 'object' },
-	output: json(ctx, 'answer', i),
-	promote: true,
+// The queue and its prompt as the node states them, made or changed only when they differ. Once per
+// execution and per queue name: every item of a run is judged under the same version.
+const queues = new WeakMap<IExecuteFunctions, Map<string, Promise<App>>>();
+
+function ensureQueue(ctx: IExecuteFunctions, i: number): Promise<App> {
+	const name = ctx.getNodeParameter('queue', i) as string;
+	const made = queues.get(ctx) ?? new Map<string, Promise<App>>();
+	queues.set(ctx, made);
+	let queue = made.get(name);
+	if (!queue) {
+		queue = (async () => {
+			const handle = await ownHandle(ctx);
+			const app =
+				(await findQueue(ctx, name, handle)) ??
+				(await reduckRequest<App>(ctx, 'POST', `/api/apps/${encodeURIComponent(handle)}`, {
+					body: { image: IMAGE, name },
+				}));
+			const template = ctx.getNodeParameter('instructions', i) as string;
+			const output = json(ctx, 'answer', i);
+			const prompts = `${await door(ctx, app)}/prompts`;
+			const { prompts: versions } = await reduckRequest<{
+				prompts: Array<{ live: boolean; template: string; output: unknown }>;
+			}>(ctx, 'GET', prompts, { qs: { name: PROMPT } });
+			const live = versions.find((version) => version.live);
+			if (live?.template !== template || canonical(live.output) !== canonical(output))
+				// Any input is accepted: what each item holds is the workflow's.
+				await reduckRequest(ctx, 'POST', prompts, {
+					body: { name: PROMPT, template, input: { type: 'object' }, output, promote: true },
+				});
+			return app;
+		})();
+		made.set(name, queue);
+	}
+	return queue;
+}
+
+// What the reviewer reads: the item's fields as a document, its title first as the headline.
+const evidence = ({ title, ...fields }: IDataObject): string =>
+	[
+		...(title ? [`# ${String(title)}`] : []),
+		...Object.entries(fields)
+			.filter(([, value]) => value !== null && value !== undefined && value !== '')
+			.map(
+				([key, value]) =>
+					`## ${key}\n\n${typeof value === 'string' ? value : JSON.stringify(value, null, 1)}`,
+			),
+	].join('\n\n') || '(empty)';
+
+/** A decision as this node gives it, waiting or ruled. */
+export const toItem = async (ctx: Ctx, app: App, decision: Decision): Promise<IDataObject> => ({
+	id: Number(decision.id),
+	verdict: decision.verdict,
+	output: decision.output,
+	feedback: decision.feedback,
+	input: decision.input,
+	proposed: decision.proposed,
+	version: decision.version,
+	ruled_at: decision.ruledAt,
+	queue: app.name,
+	review_url: await reviewUrl(ctx, app),
 });
 
 export async function review(ctx: IExecuteFunctions, i: number): Promise<IDataObject> {
-	const operation = ctx.getNodeParameter('operation', i) as string;
-
-	if (operation === 'create') {
-		const app = await reduckRequest<App>(
-			ctx,
-			'POST',
-			`/api/apps/${encodeURIComponent(ctx.getNodeParameter('owner', i) as string)}`,
-			{ body: { name: ctx.getNodeParameter('name', i) as string } },
-		);
-		const queue = `${app.owner.handle}/${app.id}`;
-		const prompt = await reduckRequest<IDataObject>(ctx, 'POST', `${queuePath(queue)}/prompts`, {
-			body: promptVersion(ctx, i),
-		});
-		return { queue, name: app.name, prompt, review_url: await reviewUrl(ctx, queue) };
-	}
-
-	const queue = ctx.getNodeParameter('queue', i, '', { extractValue: true }) as string;
-	if (operation === 'updatePrompt')
-		return reduckRequest<IDataObject>(ctx, 'POST', `${queuePath(queue)}/prompts`, {
-			body: promptVersion(ctx, i),
-		});
-
-	const reference = ctx.getNodeParameter('reference', i, '') as string;
-	const decision = await reduckRequest<IDataObject>(ctx, 'POST', `${queuePath(queue)}/decisions`, {
-		body: {
-			prompt: ctx.getNodeParameter('prompt', i) as string,
-			input: json(ctx, 'input', i),
-			tries: ctx.getNodeParameter('tries', i, 1) as number,
-			...(reference ? { ref: reference } : {}),
-		},
+	const app = await ensureQueue(ctx, i);
+	const input = json(ctx, 'input', i);
+	const { tries = 1 } = ctx.getNodeParameter('options', i, {}) as { tries?: number };
+	const decision = await reduckRequest<Decision>(ctx, 'POST', await door(ctx, app), {
+		body: { prompt: PROMPT, input, evidence: evidence(input), explain: 'text', tries },
 	});
-	return { ...decision, queue, review_url: await reviewUrl(ctx, queue) };
+	return toItem(ctx, app, decision);
 }
+
+/** The ids of the queue's decisions that match, oldest first: every page, or with `limit` one. */
+export async function decisionIds(ctx: Ctx, app: App, qs: IDataObject): Promise<number[]> {
+	const ids: number[] = [];
+	for (let cursor: string | null | undefined; cursor !== null; ) {
+		const page: { decisions: Decision[]; next: string | null } = await reduckRequest(
+			ctx,
+			'GET',
+			await door(ctx, app),
+			{ qs: { sort: 'oldest', limit: 200, ...qs, ...(cursor ? { cursor } : {}) } },
+		);
+		ids.push(...page.decisions.map((decision) => Number(decision.id)));
+		cursor = qs.limit ? null : page.next;
+	}
+	return ids;
+}
+
+export const readDecision = async (ctx: Ctx, app: App, id: number): Promise<Decision> =>
+	reduckRequest<Decision>(ctx, 'GET', `${await door(ctx, app)}/${id}`);

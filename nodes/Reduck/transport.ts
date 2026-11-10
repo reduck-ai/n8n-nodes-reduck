@@ -17,6 +17,13 @@ export async function reduckUrl(ctx: Ctx): Promise<string> {
 	return (url || 'https://reduck.ai').replace(/\/+$/, '');
 }
 
+// Where the review queues' decisions are served: flock, a host of its own. A credential saved before
+// the field existed has none, and means production.
+export async function flockUrl(ctx: Ctx): Promise<string> {
+	const { flockUrl: url } = await ctx.getCredentials<{ flockUrl?: string }>('reduckApi');
+	return (url || 'https://flock.reduck.ai').replace(/\/+$/, '');
+}
+
 // The one place this package calls Reduck. The credential adds the API key or the OAuth token.
 export async function reduckRequest<T>(
 	ctx: Ctx,
@@ -24,7 +31,8 @@ export async function reduckRequest<T>(
 	path: string,
 	options: { body?: IDataObject; qs?: IDataObject } = {},
 ): Promise<T> {
-	const url = `${await reduckUrl(ctx)}${path}`;
+	// A path is on Reduck; a full URL is on flock (flockUrl).
+	const url = path.startsWith('http') ? path : `${await reduckUrl(ctx)}${path}`;
 	try {
 		return (await ctx.helpers.httpRequestWithAuthentication.call(ctx, 'reduckApi', {
 			method,
