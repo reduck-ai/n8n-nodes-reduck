@@ -109,6 +109,14 @@ export const REVIEW_PROPERTIES: INodeProperties[] = [
 		default: {},
 		options: [
 			{
+				displayName: 'Auto Accept',
+				name: 'accept',
+				type: 'boolean',
+				default: false,
+				description:
+					'Whether the workflow accepts the answer itself, so no person reviews it. For a measurement, such as a score or a tier.',
+			},
+			{
 				displayName: 'Tries',
 				name: 'tries',
 				type: 'number',
@@ -228,7 +236,10 @@ export const toItem = async (ctx: Ctx, app: App, decision: Decision): Promise<ID
 
 export async function review(ctx: IExecuteFunctions, app: App, i: number): Promise<IDataObject> {
 	const input = json(ctx, 'input', i);
-	const { tries = 1 } = ctx.getNodeParameter('options', i, {}) as { tries?: number };
+	const { tries = 1, accept = false } = ctx.getNodeParameter('options', i, {}) as {
+		tries?: number;
+		accept?: boolean;
+	};
 	const decision = await reduckRequest<Decision>(ctx, 'POST', await door(ctx, app), {
 		body: {
 			prompt: ctx.getNodeParameter('prompt', 0),
@@ -237,7 +248,16 @@ export async function review(ctx: IExecuteFunctions, app: App, i: number): Promi
 			tries,
 		},
 	});
-	return toItem(ctx, app, decision);
+	// The same ruling a person makes on the review page, with the model's own answer.
+	return toItem(
+		ctx,
+		app,
+		accept
+			? await reduckRequest<Decision>(ctx, 'POST', `${await door(ctx, app)}/${decision.id}`, {
+					body: { action: 'accept', output: decision.output },
+				})
+			: decision,
+	);
 }
 
 /** The ids of the prompt's decisions that match, oldest first: every page, or with `limit` one. */
