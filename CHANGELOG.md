@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
+#### [0.2.38](https://github.com/reduck-ai/n8n-nodes-reduck/compare/0.2.37...0.2.38)
+
+- feat: a failed run of a read-only script starts again, up to 3 times [`989d973`](https://github.com/reduck-ai/n8n-nodes-reduck/commit/989d9736dde1e8ce728ca4de5afa240af6d735ad)
+
 #### [0.2.37](https://github.com/reduck-ai/n8n-nodes-reduck/compare/0.2.36...0.2.37)
+
+> 9 November 2026
 
 - fix: n8n-workflow is an optional peer, so npm installs no copy of its own [`4264046`](https://github.com/reduck-ai/n8n-nodes-reduck/commit/4264046dc35a7a95714dc8eadae7697d716b77dc)
 - feat: requests name the node in their User-Agent [`41d4501`](https://github.com/reduck-ai/n8n-nodes-reduck/commit/41d45015da0592f00a568bb0d6cf9da54690d8ef)
