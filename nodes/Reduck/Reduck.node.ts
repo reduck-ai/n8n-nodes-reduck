@@ -15,7 +15,9 @@ import { FILE_FIELD, PAIRED_BROWSER, getDevices, getHandles, getScriptArgs, sear
 import { REVIEW_PROPERTIES, prepare, review } from './review';
 import { parseScriptAddress, reduckRequest, reduckUrl, scriptPath, type Run } from './transport';
 
-const POLL_MS = 2000;
+// Reduck allows an account 60 API requests a minute, and each run on a paired browser spends one
+// to wake it: a read every 10 s leaves the rest to a batch of 10 such runs.
+const POLL_MS = 10_000;
 // Above the longest a run takes on Reduck: 16 minutes queued, then 15 held (the MCP's
 // admission.ts). A run still open after it is one Reduck lost.
 const MAX_WAIT_MINUTES = 32;
