@@ -1,14 +1,29 @@
 {
-	"name": "Reddit engage",
+	"name": "Reddit engage (Reduck)",
 	"nodes": [
 		{
-			"id": "every-day-at-09-00",
-			"name": "Every day at 09:00",
+			"id": "read-me",
+			"name": "Read me",
+			"type": "n8n-nodes-base.stickyNote",
+			"typeVersion": 1,
+			"position": [
+				-520,
+				-420
+			],
+			"parameters": {
+				"width": 480,
+				"height": 560,
+				"content": "## Reddit engage\n\nEvery morning, read the new threads of your subreddits, judge each one against who you sell to (Yes, Maybe or No), and draft ONE reply per person, on their best thread. You approve, edit or reject each draft on Reduck; an approved reply is posted from your Chrome.\n\n**1. Select your Reduck credential** in every Reduck node.\n\n**2. Fill in Answers**: what you sell (`company`), what breaks for whom (`icp`), how you write a reply (`style`), your subreddits, and your Reddit username (`account`), so your own threads are skipped.\n\n**3. Publish.** Each verdict is kept with its citations under **Past** on your n8n_app page; each draft waits under **To review**. **On ruling** posts the approved ones.\n\nThe listings and the rules are read on a managed browser from the US (Reddit walls its datacenter). A thread's page and the comment are on your paired Chrome, signed in to Reddit: keep it open."
+			}
+		},
+		{
+			"id": "start",
+			"name": "Every morning",
 			"type": "n8n-nodes-base.scheduleTrigger",
-			"typeVersion": 1.4,
+			"typeVersion": 1.2,
 			"position": [
 				0,
-				300
+				0
 			],
 			"parameters": {
 				"rule": {
@@ -22,176 +37,80 @@
 			}
 		},
 		{
-			"id": "table",
-			"name": "Table",
-			"type": "n8n-nodes-base.dataTable",
-			"typeVersion": 1.1,
-			"position": [
-				110,
-				300
-			],
-			"parameters": {
-				"resource": "table",
-				"operation": "create",
-				"tableName": "reddit_engage",
-				"columns": {
-					"column": [
-						{
-							"name": "status",
-							"type": "string"
-						},
-						{
-							"name": "reply",
-							"type": "string"
-						},
-						{
-							"name": "url",
-							"type": "string"
-						},
-						{
-							"name": "title",
-							"type": "string"
-						},
-						{
-							"name": "author",
-							"type": "string"
-						},
-						{
-							"name": "subreddit",
-							"type": "string"
-						},
-						{
-							"name": "tier",
-							"type": "string"
-						},
-						{
-							"name": "thread",
-							"type": "string"
-						},
-						{
-							"name": "comment_url",
-							"type": "string"
-						},
-						{
-							"name": "error",
-							"type": "string"
-						}
-					]
-				},
-				"options": {
-					"createIfNotExists": true
-				}
-			}
-		},
-		{
-			"id": "config",
-			"name": "Config",
+			"id": "answers",
+			"name": "Answers",
 			"type": "n8n-nodes-base.set",
 			"typeVersion": 3.4,
 			"position": [
-				220,
-				300
+				200,
+				0
 			],
 			"parameters": {
-				"mode": "manual",
-				"includeOtherFields": false,
 				"assignments": {
 					"assignments": [
 						{
 							"id": "company",
 							"name": "company",
-							"value": "Who you are and what you sell. This is the ceiling on what a reply may claim.",
+							"value": "",
 							"type": "string"
 						},
 						{
 							"id": "icp",
 							"name": "icp",
-							"value": "Who you serve and what breaks for them. Every thread is judged against this.",
+							"value": "",
 							"type": "string"
 						},
 						{
 							"id": "style",
 							"name": "style",
-							"value": "How you write a reply: how one opens, where the offer sits, what you never write.",
+							"value": "",
 							"type": "string"
 						},
 						{
 							"id": "subreddits",
 							"name": "subreddits",
-							"value": "mcp, n8n",
+							"value": "n8n, automation",
 							"type": "string"
 						},
 						{
-							"id": "since",
-							"name": "since",
-							"value": "48h",
+							"id": "account",
+							"name": "account",
+							"value": "",
 							"type": "string"
 						},
 						{
-							"id": "rules",
-							"name": "rules",
-							"value": "{}",
-							"type": "object"
+							"id": "days",
+							"name": "days",
+							"value": 1,
+							"type": "number"
 						}
 					]
-				}
+				},
+				"options": {}
 			}
 		},
 		{
-			"id": "prompts",
-			"name": "Prompts",
-			"type": "n8n-nodes-base.set",
-			"typeVersion": 3.4,
-			"position": [
-				330,
-				300
-			],
-			"parameters": {
-				"mode": "manual",
-				"includeOtherFields": true,
-				"assignments": {
-					"assignments": [
-						{
-							"id": "qualify",
-							"name": "qualify",
-							"value": "=You decide whether a Reddit thread is worth a reply from the owner — the person whose company is described below. The Evidence is the thread's title and the OP's full post, and it MAY also carry the thread's comments — see \"Reading the thread\". A thread is worth engaging when replying puts the owner in front of people who feel the pain their company solves AND they have something genuinely helpful to add.\n\n## Who we are\n\n{{ $('Config').first().json.company }}\n\n## Who we serve, and what breaks for them\n\n{{ $('Config').first().json.icp }}\n\n## Reading the thread\n\nThe same judgment runs twice on growing evidence, and which read you are making is visible in the Evidence itself.\n\n- **No Comments section** — you are PRE-SCREENING on the post alone, and the only thing your verdict decides is whether the thread is worth fetching in full. Where the post leaves the buyer or the workflow genuinely UNSTATED, pass it up rather than out: an unfetched thread is never looked at again, so a wrong 'No' here is permanent and invisible, while a wrong T1 costs one page fetch. That latitude covers SILENCE and nothing else. When the post itself states the thing that decides — the author builds a substitute, the need is one ordinary tooling already serves, the subject is one nothing we sell would touch, there is no ask at all — it is decided, so decide it. And never promote on speculation about what the comments MIGHT say; you weigh the words in front of you, exactly as in the deciding read.\n- **A Comments section is present** — this is the DECIDING read, and everything in it is evidence ABOUT THE OP'S ASK. Comments marked `(OP)` are the author's own words and weigh exactly as much as the post: people volunteer under a post what they never put in it, and it routinely cuts the other way (\"there's no audience for now\", \"I'm a broke student\", or equally \"we're rolling this out to 200 stores\"). Weigh what you find in either direction — a thread the post alone would have engaged can end at 'No', and one that looked thin can rise.\n\n**The pain must be the OP's.** A comment by anyone else can corroborate the OP's ask or cut against it; it can never SUPPLY one. We reply to the OP and to nobody else, so a thread whose author has no pain is 'No' however sharp the pain in the replies — a weekly \"what did you build this week?\" check-in is fifty strangers' show-and-tell, not fifty prospects, and the one commenter there who is blocked on something is not who we would be answering.\n\n## Judgment\n\nReturn the tier. Work through the three questions IN ORDER — the first that answers decides the tier:\n\n- First: same layer, or off topic? → No.\n- Second: the pain described in \"Who we serve\", voiced by somebody who HAS it? → T1.\n- Third: right persona or right diagnosis, but no concrete stuck workflow? → T2.\n\n**No — disqualified, two distinct ways, and both are read off \"Who we serve\" rather than from any list here.**\n\n(a) **Same layer** — the author BUILDS OR SELLS A CURE for the pain described there, rather than HAVING it. That is the whole test. Mid-build or launched makes no difference: someone doing \"market research\" for their own same-layer tool, or posting \"link in the comments\", is a competitor courting our audience, not a prospect — we never reply to competitors.\n\n(b) **Off topic** — ask \"would what we sell actually fix this?\" If nothing in \"Who we are\" would address the pain, it is not ours, whatever the domain, and \"Who we serve\" names the near-misses this install keeps meeting. Also No: satisfied show-and-tell or \"give me ideas\" posts with no unsolved pain, and engagement-bait. 'No' drops the thread — no reply is drafted.\n\nFour shapes are 'No' whatever the domain, because none of them is a pain anybody could sell into:\n\n- **A WISH IS NOT A PAIN.** Wanting more capability, more autonomy, fewer restrictions — with no task named that they are blocked on — describes a leash, not a wall. This is about a wish with NO SHAPE attached: when what they want IS one of the shapes in \"Who we serve\", the shape decides and the vagueness of the ask does not. There is nothing to answer until they say what they need DONE, and the moment they do, the task decides the tier: \"it blocks some very simple automations that I need\" names one, \"give it full permissions\" does not.\n- **A ONE-OFF IS NOT A WORKFLOW.** A task that is over once it is done is No. Many targets is not a repeat and a big one-off is still a one-off: nothing comes back, so there is nothing to keep running. The test is whether they will run it AGAIN — a daily digest, a weekly export, a standing watch, a round that goes on for months all recur; \"get me X\" does not.\n- **COMMENTARY ON SOMEBODY ELSE'S PRODUCT IS NOT A PAIN.** A post whose subject is another company's launch, funding round, benchmark or strategy is No when the author reports no workflow of their own — they are reading the market, not stuck in it. Ending on a question does not rescue it: \"anyone actually using it in production?\" asks the sub to evaluate a product, and there is nothing of the author's to unblock. The tell is whose hands were on the keyboard: failures the author HIT THEMSELVES and brought to the sub are the pain; relaying what a vendor claims and asking whether it holds up is curiosity. When the product discussed sits at OUR layer, this is (a) seen from the other side.\n- **A BROADCAST IS NOT AN ASK.** A report with no question for the reader, or addressed over the reader's head to a third party who is not in the thread (\"do brands even realise?\"), leaves nothing to reply to — and is usually an advert for whatever produced the findings.\n\n**T1** — the pain described in \"Who we serve\", in any of the shapes named there, voiced by somebody who has it: a user, or a builder whose product sits ON TOP of what we sell. A NAMED SHAPE QUALIFIES BY CONSTRUCTION, however vague the ask: \"best practices for doing X on <platform>\" from somebody who wants their agent doing it is one of ours, and so is a goal stated without a plan — they do not have to have diagnosed their own problem for it to be the problem we solve. What must be concrete is the SHAPE, never the sentence. Reporting concrete failures of that kind and ASKING THE SUB about them IS the pain — a study, findings or benchmark framing counts exactly like \"help, I'm stuck\", provided there is an ask (see A BROADCAST above). SHOPPING WITHIN OUR CATEGORY is T1 too: someone comparing tools that do what we do, on reliability, limits, risk or price, is a buyer in our aisle rather than an off-topic provider question — whoever they are and whatever they run on, and a tight budget or wanting a free tier changes nothing. Partial scope does not downgrade: when the ask spans several surfaces and our part alone is a substantial direct answer, it is T1 — answer that part and be honest about the rest. And the qualifying ask need not be the thread's MAIN topic: an explicit one buried inside an otherwise off-topic question qualifies on its own, because we reply to the person rather than to the headline.\n\n**T2** — worth a soft, genuinely helpful reply, nothing more; a NARROW bucket, and narrow because it holds exactly one thing: the right persona with no pain of their own to unblock. Two shapes and no others — merely CURIOUS (not yet operating anything, no goal of their own), or the right diagnosis with no stuck workflow (a think-piece arguing only from invented scenarios and inviting opinions). Somebody already OPERATING and stating a goal in a domain our pain lives in is T1, not T2, even when the question is phrased as \"how should I structure my day\" — but check WHERE the stated goal actually runs: a goal whose named channel has ordinary tooling needs nothing we sell, and somebody capable enough to have set the rest up will finish it alone: No, not T1.\n\n## Key principles\n\n- **Substitute vs stackable, judged by WHICH SIDE OF THE PAIN they are on, never by maturity.** Anyone building a CURE for the pain in \"Who we serve\" is 'No', launched or not; anyone who HAS that pain is a prospect. Having ADOPTED someone else's half-solution is proof of the pain, not competition.\n- **Concrete beats conceptual.** T1 needs a workflow or system the author is blocked on or asking to make work — \"how do you handle X\", \"any fallbacks you've discovered\", \"what do you actually do when Y\". The concrete task may arrive wrapped in an architectural argument: what matters is whether the author is REPORTING their own experience or INVENTING a scenario to illustrate. A situation they recount repeatedly hitting in their own operations is concrete, however generically described and however essay-like the surrounding argument: T1 when they ask what others do about it. A post may do BOTH — argue a thesis and ask what others actually do; the practices question wins. Downgrade to T2 only when there is nothing of their own to unblock and the ONLY ask is to critique the worldview.\n- **Literal-answer test.** If what we sell is the direct answer to the actual question asked, it is T1 — do not downgrade because the author's broader business is uncertain, because a secondary surface is out of scope, or because they are technical enough to have tried other tools. The question may be prospective: someone scoping a workflow they have not built yet, asking what tools reach it and what the risks are, is asking a buying question. (The essay boundary is asking for OPINIONS on a worldview; asking for TOOLING and its risks is procurement.)\n- **Size the PAIN, never the wallet.** Who is asking has no bearing on the tier. Hobbyist or company, laptop or phone, free tier or paid, their own errand or their employer's — a tight budget, \"just me, no company\", \"I'm a beginner\" are means and skill, and say nothing about whether the pain is real. The only question is whether it is a pain someone could build a product on: does the same need come back, for many people, across many places? What disqualifies is a pain that is over when the task is, or one that exists for this person alone.\n\nBeware keyword traps: a word from our domain is not the pain — what qualifies is the thing the author cannot do, never the vocabulary they said it in. Be decisive; do not stretch to qualify a weak fit. Tie-breaks: torn between T1 and T2 → T1 (the human gate is cheap, and a reachable prospect lost is dearer than a review). Torn between T2 and No → No unless the person themselves is reachable WITH a goal of their own; meta-discussion never earns T2 on persona alone.",
-							"type": "string"
-						},
-						{
-							"id": "decide",
-							"name": "decide",
-							"value": "=You decide whether a Reddit thread is worth a reply from the owner — the person whose company is described below. The Evidence is the thread's title and the OP's full post, and it MAY also carry the thread's comments — see \"Reading the thread\". A thread is worth engaging when replying puts the owner in front of people who feel the pain their company solves AND they have something genuinely helpful to add.\n\n## Who we are\n\n{{ $('Config').first().json.company }}\n\n## Who we serve, and what breaks for them\n\n{{ $('Config').first().json.icp }}\n\n## Reading the thread\n\nThe same judgment runs twice on growing evidence, and which read you are making is visible in the Evidence itself.\n\n- **No Comments section** — you are PRE-SCREENING on the post alone, and the only thing your verdict decides is whether the thread is worth fetching in full. Where the post leaves the buyer or the workflow genuinely UNSTATED, pass it up rather than out: an unfetched thread is never looked at again, so a wrong 'No' here is permanent and invisible, while a wrong T1 costs one page fetch. That latitude covers SILENCE and nothing else. When the post itself states the thing that decides — the author builds a substitute, the need is one ordinary tooling already serves, the subject is one nothing we sell would touch, there is no ask at all — it is decided, so decide it. And never promote on speculation about what the comments MIGHT say; you weigh the words in front of you, exactly as in the deciding read.\n- **A Comments section is present** — this is the DECIDING read, and everything in it is evidence ABOUT THE OP'S ASK. Comments marked `(OP)` are the author's own words and weigh exactly as much as the post: people volunteer under a post what they never put in it, and it routinely cuts the other way (\"there's no audience for now\", \"I'm a broke student\", or equally \"we're rolling this out to 200 stores\"). Weigh what you find in either direction — a thread the post alone would have engaged can end at 'No', and one that looked thin can rise.\n\n**The pain must be the OP's.** A comment by anyone else can corroborate the OP's ask or cut against it; it can never SUPPLY one. We reply to the OP and to nobody else, so a thread whose author has no pain is 'No' however sharp the pain in the replies — a weekly \"what did you build this week?\" check-in is fifty strangers' show-and-tell, not fifty prospects, and the one commenter there who is blocked on something is not who we would be answering.\n\n## Judgment\n\nReturn the tier. Work through the three questions IN ORDER — the first that answers decides the tier:\n\n- First: same layer, or off topic? → No.\n- Second: the pain described in \"Who we serve\", voiced by somebody who HAS it? → T1.\n- Third: right persona or right diagnosis, but no concrete stuck workflow? → T2.\n\n**No — disqualified, two distinct ways, and both are read off \"Who we serve\" rather than from any list here.**\n\n(a) **Same layer** — the author BUILDS OR SELLS A CURE for the pain described there, rather than HAVING it. That is the whole test. Mid-build or launched makes no difference: someone doing \"market research\" for their own same-layer tool, or posting \"link in the comments\", is a competitor courting our audience, not a prospect — we never reply to competitors.\n\n(b) **Off topic** — ask \"would what we sell actually fix this?\" If nothing in \"Who we are\" would address the pain, it is not ours, whatever the domain, and \"Who we serve\" names the near-misses this install keeps meeting. Also No: satisfied show-and-tell or \"give me ideas\" posts with no unsolved pain, and engagement-bait. 'No' drops the thread — no reply is drafted.\n\nFour shapes are 'No' whatever the domain, because none of them is a pain anybody could sell into:\n\n- **A WISH IS NOT A PAIN.** Wanting more capability, more autonomy, fewer restrictions — with no task named that they are blocked on — describes a leash, not a wall. This is about a wish with NO SHAPE attached: when what they want IS one of the shapes in \"Who we serve\", the shape decides and the vagueness of the ask does not. There is nothing to answer until they say what they need DONE, and the moment they do, the task decides the tier: \"it blocks some very simple automations that I need\" names one, \"give it full permissions\" does not.\n- **A ONE-OFF IS NOT A WORKFLOW.** A task that is over once it is done is No. Many targets is not a repeat and a big one-off is still a one-off: nothing comes back, so there is nothing to keep running. The test is whether they will run it AGAIN — a daily digest, a weekly export, a standing watch, a round that goes on for months all recur; \"get me X\" does not.\n- **COMMENTARY ON SOMEBODY ELSE'S PRODUCT IS NOT A PAIN.** A post whose subject is another company's launch, funding round, benchmark or strategy is No when the author reports no workflow of their own — they are reading the market, not stuck in it. Ending on a question does not rescue it: \"anyone actually using it in production?\" asks the sub to evaluate a product, and there is nothing of the author's to unblock. The tell is whose hands were on the keyboard: failures the author HIT THEMSELVES and brought to the sub are the pain; relaying what a vendor claims and asking whether it holds up is curiosity. When the product discussed sits at OUR layer, this is (a) seen from the other side.\n- **A BROADCAST IS NOT AN ASK.** A report with no question for the reader, or addressed over the reader's head to a third party who is not in the thread (\"do brands even realise?\"), leaves nothing to reply to — and is usually an advert for whatever produced the findings.\n\n**T1** — the pain described in \"Who we serve\", in any of the shapes named there, voiced by somebody who has it: a user, or a builder whose product sits ON TOP of what we sell. A NAMED SHAPE QUALIFIES BY CONSTRUCTION, however vague the ask: \"best practices for doing X on <platform>\" from somebody who wants their agent doing it is one of ours, and so is a goal stated without a plan — they do not have to have diagnosed their own problem for it to be the problem we solve. What must be concrete is the SHAPE, never the sentence. Reporting concrete failures of that kind and ASKING THE SUB about them IS the pain — a study, findings or benchmark framing counts exactly like \"help, I'm stuck\", provided there is an ask (see A BROADCAST above). SHOPPING WITHIN OUR CATEGORY is T1 too: someone comparing tools that do what we do, on reliability, limits, risk or price, is a buyer in our aisle rather than an off-topic provider question — whoever they are and whatever they run on, and a tight budget or wanting a free tier changes nothing. Partial scope does not downgrade: when the ask spans several surfaces and our part alone is a substantial direct answer, it is T1 — answer that part and be honest about the rest. And the qualifying ask need not be the thread's MAIN topic: an explicit one buried inside an otherwise off-topic question qualifies on its own, because we reply to the person rather than to the headline.\n\n**T2** — worth a soft, genuinely helpful reply, nothing more; a NARROW bucket, and narrow because it holds exactly one thing: the right persona with no pain of their own to unblock. Two shapes and no others — merely CURIOUS (not yet operating anything, no goal of their own), or the right diagnosis with no stuck workflow (a think-piece arguing only from invented scenarios and inviting opinions). Somebody already OPERATING and stating a goal in a domain our pain lives in is T1, not T2, even when the question is phrased as \"how should I structure my day\" — but check WHERE the stated goal actually runs: a goal whose named channel has ordinary tooling needs nothing we sell, and somebody capable enough to have set the rest up will finish it alone: No, not T1.\n\n## Key principles\n\n- **Substitute vs stackable, judged by WHICH SIDE OF THE PAIN they are on, never by maturity.** Anyone building a CURE for the pain in \"Who we serve\" is 'No', launched or not; anyone who HAS that pain is a prospect. Having ADOPTED someone else's half-solution is proof of the pain, not competition.\n- **Concrete beats conceptual.** T1 needs a workflow or system the author is blocked on or asking to make work — \"how do you handle X\", \"any fallbacks you've discovered\", \"what do you actually do when Y\". The concrete task may arrive wrapped in an architectural argument: what matters is whether the author is REPORTING their own experience or INVENTING a scenario to illustrate. A situation they recount repeatedly hitting in their own operations is concrete, however generically described and however essay-like the surrounding argument: T1 when they ask what others do about it. A post may do BOTH — argue a thesis and ask what others actually do; the practices question wins. Downgrade to T2 only when there is nothing of their own to unblock and the ONLY ask is to critique the worldview.\n- **Literal-answer test.** If what we sell is the direct answer to the actual question asked, it is T1 — do not downgrade because the author's broader business is uncertain, because a secondary surface is out of scope, or because they are technical enough to have tried other tools. The question may be prospective: someone scoping a workflow they have not built yet, asking what tools reach it and what the risks are, is asking a buying question. (The essay boundary is asking for OPINIONS on a worldview; asking for TOOLING and its risks is procurement.)\n- **Size the PAIN, never the wallet.** Who is asking has no bearing on the tier. Hobbyist or company, laptop or phone, free tier or paid, their own errand or their employer's — a tight budget, \"just me, no company\", \"I'm a beginner\" are means and skill, and say nothing about whether the pain is real. The only question is whether it is a pain someone could build a product on: does the same need come back, for many people, across many places? What disqualifies is a pain that is over when the task is, or one that exists for this person alone.\n\nBeware keyword traps: a word from our domain is not the pain — what qualifies is the thing the author cannot do, never the vocabulary they said it in. Be decisive; do not stretch to qualify a weak fit. Tie-breaks: torn between T1 and T2 → T1 (the human gate is cheap, and a reachable prospect lost is dearer than a review). Torn between T2 and No → No unless the person themselves is reachable WITH a goal of their own; meta-discussion never earns T2 on persona alone.\n\n---\n\n# Then, the reply\n\nDecide the tier first, as above. When the tier is T1 or T2, also draft the reply as described below; the Tier you just decided is the Tier this section talks about. When the tier is No, return an empty reply.\n\nYou draft a Reddit reply for the owner — the person described below. Help the OP first: Reddit rewards substance and is hostile to self-promotion.\n\nThe Evidence carries the thread, and that community's rules when we know them — shown none, take the strictest reading. Comments are context; you answer the OP, and `(OP)` marks the author's own words. \n\n## Who we are — the ceiling on any claim\n\n{{ $('Config').first().json.company }}\n\n## Who we serve, and what breaks for them\n\n{{ $('Config').first().json.icp }}\n\n## How the owner writes\n\n{{ $('Config').first().json.style }}\n\n## What makes a reply INVALID — only these\n\nA reply that avoids all of them is valid, however it is phrased:\n\n- it carries a URL — the composer silently refuses one, so it never posts;\n- it opens with canned sympathy (\"I feel your pain\", \"that's a classic…\") or uses marketing language — the language of an ad: superlatives about the product, slogans, \"seamless\", \"game-changing\", \"revolutionary\", a close written as ad copy. Plain enthusiasm is the owner's own register and is NOT marketing: \"works great\", \"then it's super fast!\", \"no auth issue, no fingerprint issue\", an exclamation mark, a \":D\";\n- it asserts something it cannot know — their stack, their skill, their budget, or a cause nothing in the post points to. Explaining the mechanism behind a symptom they DESCRIBED is the opposite of this and is what a good reply is for;\n- it pitches before it helps, or its body is only a pitch;\n- it is FORMATTED as a manual rather than a reply: markdown headings, bolded labels, or numbered items (\"1.\", \"2.\"). This is about the MARKUP only — dashes are prose, and so are the words \"First…\" and \"Second…\" inside them;\n- **its offer does not NAME what is offered, or says nothing about it** — an offer carries the product's own name, as \"How the owner writes\" gives it, and one thing about what it DOES. What fails is a claim of fit with no thing (\"I'm building a tool/platform that does exactly this\", \"a solution for this exact use case\") or a thing with no name (\"an MCP I built\"), which the OP cannot go and look for. THE DOING HALF HAS A DELIBERATELY LOW BAR and is about substance, not length: how it ATTACHES is enough (\"you can plug it to your AI Agent\", \"it connects to your Chrome extension\"), and so is one mechanism (\"it writes scripts and runs them\"). The name is never a URL, and the offer never comes before the help;\n- **the post leaves nothing to act on — no task, no site, no symptom — and the reply asks them nothing**, prescribing to a need it invented. A post that names its subject and asks how people handle it does not trigger this;\n- **it opens no door anywhere** — no DM invite, no question, no offer to look at their case or share more, and no naming of where to try it: only assertions, or an ad line. The door may sit in the first sentence as easily as the last, and inviting them to try it and report back is one;\n- it pads — sentences carrying no insight the OP lacked: step-by-step walkthroughs, install instructions, or restating what they already said. A QUESTION is never padding, even about something the post touches on: asking them to be specific is how you avoid guessing;\n- it breaks a rule the community states, as written — a relevance rule is about the thread's subject, not about which vendor a named tool runs on, and a no-selling rule is about selling: naming a free tier somebody may try is not a sale.\n\nEverything above this list is drafting guidance: it shapes a good reply and never on its own makes one invalid. In particular there is NO length rule, no required opener, and no shape a reply has to take — a single well-aimed question is a complete, valid reply. A reply that makes NO OFFER breaks no rule by having none: the naming rule bites only on a reply that does offer, and a community forbidding self-promotion always wins.\n\n**The Tier sets directness, never length or substance.** T1: the OP's pain is squarely ours, so name it head-on. T2: the fit is partial, so stay on what they actually asked and offer only if it is unmistakably relevant.\n\nReturn the reply exactly as it would be posted — no preamble, no quotation marks.",
-							"type": "string"
-						}
-					]
-				}
-			}
-		},
-		{
-			"id": "one-item-per-community",
-			"name": "One item per community",
+			"id": "subreddits",
+			"name": "Subreddits",
 			"type": "n8n-nodes-base.code",
 			"typeVersion": 2,
 			"position": [
-				440,
-				300
+				400,
+				0
 			],
 			"parameters": {
-				"mode": "runOnceForAllItems",
-				"jsCode": "// One item per watched community, in the canonical spelling.\nreturn String($input.first().json.subreddits ?? '')\n  .split(',')\n  .map((s) => s.trim().replace(/^r\\//i, '').toLowerCase())\n  .filter(Boolean)\n  .map((subreddit) => ({ json: { subreddit } }));"
+				"jsCode": "// One item per watched subreddit.\nreturn String($('Answers').first().json.subreddits ?? '').split(',').map((s) => s.trim().replace(/^r\\//i, '')).filter(Boolean)\n  .map((subreddit) => ({ json: { subreddit } }));"
 			}
 		},
 		{
-			"id": "scan-community",
-			"name": "Scan community",
+			"id": "listing",
+			"name": "New threads",
 			"type": "@reduck-ai/n8n-nodes-reduck.reduck",
 			"typeVersion": 1,
 			"position": [
-				660,
-				300
+				600,
+				0
 			],
-			"onError": "continueRegularOutput",
-			"credentials": {},
 			"parameters": {
 				"script": {
 					"__rl": true,
@@ -203,7 +122,7 @@
 					"value": {
 						"subreddit": "={{ $json.subreddit }}",
 						"sort": "new",
-						"since": "={{ $('Config').first().json.since }}"
+						"since": "={{ $('Answers').first().json.days }}d"
 					},
 					"matchingColumns": [],
 					"schema": [
@@ -236,10 +155,14 @@
 						}
 					]
 				},
-				"browser": "extension",
-				"deviceId": "extension",
+				"browser": "managed",
+				"options": {
+					"country": "US"
+				},
 				"simplify": true
-			}
+			},
+			"credentials": {},
+			"onError": "continueRegularOutput"
 		},
 		{
 			"id": "threads",
@@ -247,152 +170,89 @@
 			"type": "n8n-nodes-base.code",
 			"typeVersion": 2,
 			"position": [
-				880,
-				300
+				800,
+				0
 			],
 			"parameters": {
-				"mode": "runOnceForAllItems",
-				"jsCode": "// Every thread of every listing, as one item each, with the post rendered for a model.\n// A thread is keyed by its canonical url, so no shape Reddit renders can fork it.\nconst canon = (u) => {\n  const m = String(u ?? '').match(/\\/r\\/([^/]+)\\/comments\\/([a-z0-9]+)/i);\n  return m ? `https://www.reddit.com/r/${m[1].toLowerCase()}/comments/${m[2].toLowerCase()}/` : null;\n};\n// An account we could reply to: \"[deleted]\" and an empty author are nobody.\nconst person = (a) => /^[A-Za-z0-9_-]{3,20}$/.test(a ?? '') && a.toLowerCase() !== 'deleted';\n\n// One community failing (private, banned) stops none of the others; all of them failing is a broken\n// setup, such as a Reduck credential that is not connected, and must show as a failed run.\nconst scans = $input.all();\nif (scans.length && scans.every((s) => s.json.error)) throw new Error(`Every scan failed: ${scans[0].json.error}`);\nconst out = [];\nfor (const item of scans) {\n  for (const t of item.json.result?.threads ?? []) {\n    const url = canon(t.url);\n    if (!url || !person(t.author)) continue;\n    const subreddit = url.split('/')[4];\n    const byline = [\n      `r/${subreddit}`,\n      `u/${t.author}`,\n      t.created && `posted ${t.created}`,\n      t.score != null && `${t.score} points`,\n      t.num_comments != null && `${t.num_comments} comments`,\n      t.post_type && `${t.post_type} post`,\n    ].filter(Boolean).join(' · ');\n    const head = `${byline}\\n# ${String(t.title ?? '').trim()}\\n${url}`;\n    // An empty body is two different facts: the OP wrote nothing, or the listing never shows\n    // the words of this kind of post. Saying \"no text\" for the second is a false statement.\n    const post = String(t.body ?? '').trim() || (t.body_known\n      ? '(the OP wrote no text)'\n      : \"(the post's own text is not in the listing for this kind of post, and the thread page has not been read, so it is unknown, not empty)\");\n    out.push({ json: {\n      url, subreddit, author: t.author, title: t.title ?? '', created: t.created ?? null,\n      score: t.score ?? null, head, evidence: `${head}\\n\\n## Post\\n\\n${post}`,\n    } });\n  }\n}\nreturn out;"
+				"jsCode": "// One item per new thread, keyed by its canonical url. Never the account's own threads, nor a\n// deleted author's: there is nobody to reply to.\nconst account = String($('Answers').first().json.account ?? '').trim().toLowerCase();\nconst canon = (u) => {\n  const m = String(u).match(/\\/r\\/([^/]+)\\/comments\\/([a-z0-9]+)/i);\n  return `https://www.reddit.com/r/${m[1].toLowerCase()}/comments/${m[2].toLowerCase()}/`;\n};\nreturn $input.all().flatMap(({ json: { result: r } }) => (r?.threads ?? [])\n  .filter((t) => /^[A-Za-z0-9_-]{3,20}$/.test(t.author ?? '') && !['deleted', account].includes(t.author.toLowerCase()))\n  .map((t) => ({ json: {\n    post: { url: canon(t.url), source: 'reddit', place: r.subreddit.toLowerCase(), title: t.title ?? '', author: t.author, created: t.created ?? null, post_type: t.post_type ?? null, content_href: t.content_href ?? null, op_text: t.body ?? null, op_text_known: t.body_known ? 1 : 0 },\n    read: { score: t.score ?? null, num_comments: t.num_comments ?? null }\n  } })));"
 			}
 		},
 		{
-			"id": "new-threads-only",
-			"name": "New threads only",
-			"type": "n8n-nodes-base.dataTable",
-			"typeVersion": 1.1,
+			"id": "dedupe",
+			"name": "Not seen before",
+			"type": "n8n-nodes-base.removeDuplicates",
+			"typeVersion": 2,
 			"position": [
-				1100,
-				300
+				1000,
+				0
 			],
 			"parameters": {
-				"resource": "row",
-				"operation": "rowNotExists",
-				"dataTableId": {
-					"__rl": true,
-					"mode": "name",
-					"value": "reddit_engage"
-				},
-				"matchType": "allConditions",
-				"filters": {
-					"conditions": [
-						{
-							"keyName": "url",
-							"keyValue": "={{ $json.url }}"
-						}
-					]
-				}
+				"operation": "removeItemsSeenInPreviousExecutions",
+				"dedupeValue": "={{ $json.post.url }}",
+				"options": {}
 			}
 		},
 		{
-			"id": "pre-screen",
-			"name": "Pre-screen",
-			"type": "n8n-nodes-base.httpRequest",
-			"typeVersion": 4.2,
-			"position": [
-				1320,
-				300
-			],
-			"retryOnFail": true,
-			"maxTries": 3,
-			"waitBetweenTries": 5000,
-			"credentials": {},
-			"parameters": {
-				"method": "POST",
-				"url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
-				"authentication": "predefinedCredentialType",
-				"nodeCredentialType": "googlePalmApi",
-				"sendBody": true,
-				"contentType": "json",
-				"specifyBody": "json",
-				"jsonBody": "={{ JSON.stringify({\n  systemInstruction: { parts: [{ text: $('Prompts').first().json.qualify }] },\n  contents: [{ role: 'user', parts: [{ text: $json.evidence }] }],\n  generationConfig: {\n    thinkingConfig: { thinkingLevel: 'low' },\n    responseMimeType: 'application/json',\n    responseSchema: {\n  \"type\": \"object\",\n  \"required\": [\n    \"tier\"\n  ],\n  \"properties\": {\n    \"tier\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"T1\",\n        \"T2\",\n        \"No\"\n      ]\n    }\n  }\n},\n  },\n}) }}",
-				"options": {
-					"batching": {
-						"batch": {
-							"batchSize": 10,
-							"batchInterval": 0
-						}
-					},
-					"timeout": 120000
-				}
-			}
-		},
-		{
-			"id": "people-already-drafted",
-			"name": "People already drafted",
-			"type": "n8n-nodes-base.dataTable",
-			"typeVersion": 1.1,
-			"position": [
-				1640,
-				300
-			],
-			"executeOnce": true,
-			"alwaysOutputData": true,
-			"parameters": {
-				"resource": "row",
-				"operation": "get",
-				"dataTableId": {
-					"__rl": true,
-					"mode": "name",
-					"value": "reddit_engage"
-				},
-				"matchType": "anyCondition",
-				"filters": {
-					"conditions": [
-						{
-							"keyName": "status",
-							"condition": "eq",
-							"keyValue": "pending"
-						},
-						{
-							"keyName": "status",
-							"condition": "eq",
-							"keyValue": "replied"
-						},
-						{
-							"keyName": "status",
-							"condition": "eq",
-							"keyValue": "failed"
-						}
-					]
-				},
-				"returnAll": true
-			}
-		},
-		{
-			"id": "one-thread-per-person",
-			"name": "One thread per person",
+			"id": "render",
+			"name": "Render",
 			"type": "n8n-nodes-base.code",
 			"typeVersion": 2,
 			"position": [
-				1860,
-				300
+				1200,
+				0
 			],
 			"parameters": {
-				"mode": "runOnceForAllItems",
-				"jsCode": "// ONE CONVERSATION PER PERSON. Of the threads the pre-screen advanced, each author's best one is\n// read; none is read for an author who already holds a draft (a rejected draft releases them).\n// Every other thread leaves here as a \"skipped\" row, so the table remembers it was judged.\nconst threads = $('New threads only').all();\nconst claimed = new Set($input.all().map((i) => i.json.author?.toLowerCase()).filter(Boolean));\nconst RANK = { T1: 0, T2: 1 };\n// Total order, so the same field always picks the same thread: tier, score, newest, url.\nconst better = (a, b) =>\n  RANK[a.prescreen] - RANK[b.prescreen] ||\n  (b.score ?? 0) - (a.score ?? 0) ||\n  String(b.created ?? '').localeCompare(String(a.created ?? '')) ||\n  a.url.localeCompare(b.url);\n\nconst best = new Map();\nconst answer = (j) => {\n  try {\n    return JSON.parse((j.candidates?.[0]?.content?.parts ?? []).filter((p) => p.text && !p.thought).map((p) => p.text).join(''));\n  } catch { return {}; }\n};\nconst judged = $('Pre-screen').all().map((v, i) => ({\n  ...threads[v.pairedItem?.item ?? i].json,\n  prescreen: answer(v.json).tier ?? 'No',\n}));\nfor (const t of judged) {\n  const key = t.author.toLowerCase();\n  if (!(t.prescreen in RANK) || claimed.has(key)) continue;\n  const held = best.get(key);\n  if (!held || better(t, held) < 0) best.set(key, t);\n}\nconst picked = new Set([...best.values()].map((t) => t.url));\nreturn judged.map((t) => ({\n  json: picked.has(t.url)\n    ? { ...t, read: true }\n    : { url: t.url, title: t.title, author: t.author, subreddit: t.subreddit, tier: t.prescreen,\n        reply: '', status: 'skipped', error: '', read: false },\n}));"
+				"mode": "runOnceForEachItem",
+				"jsCode": "// The thread as the model and the reviewer read it: n8n_qualifier's evidenceOf. A listing item on\n// the first read (no Comments section: a pre-screen), the thread's page on the second.\nconst canon = (u) => {\n  const m = String(u).match(/\\/r\\/([^/]+)\\/comments\\/([a-z0-9]+)/i);\n  return `https://www.reddit.com/r/${m[1].toLowerCase()}/comments/${m[2].toLowerCase()}/`;\n};\nconst r = $json.result;\nconst { post, read, comments = null } = r\n  ? {\n      post: { url: canon(r.permalink), source: 'reddit', place: r.subreddit.toLowerCase(), title: r.title, author: r.author ?? null, created: r.created ?? null, post_type: r.post_type ?? null, content_href: r.content_href ?? null, op_text: String(r.op_text ?? '').trim() || null, op_text_known: 1 },\n      read: { score: r.score ?? null, num_comments: r.num_comments ?? null },\n      comments: (r.comments ?? []).map((c) => ({ author: c.author ?? null, body: c.body ?? '', score: c.score ?? null, depth: c.depth ?? 0, created: c.created ?? null }))\n    }\n  : $json;\n\nconst who = (name) => 'u/' + (name ?? '(deleted)');\nconst when = (t) => (t ? String(t).slice(0, 16).replace('T', ' ') + ' UTC' : null);\nconst byline = ['r/' + post.place, who(post.author), post.created ? 'posted ' + when(post.created) : null,\n  read.score == null ? null : read.score + ' points',\n  read.num_comments == null ? null : read.num_comments + ' comments',\n  post.post_type && !['text', 'multi_media'].includes(post.post_type) ? post.post_type + ' post' : null].filter(Boolean).join(' · ');\nconst head = ['<div class=\"rd-byline\">' + byline + '</div>', '# ' + String(post.title ?? '').trim()];\n// Where a link or image post points. A text post points at itself, which says nothing.\nif (post.content_href && !(/\\/comments\\//.test(post.content_href) && canon(post.content_href) === post.url)) head.push('<div class=\"rd-link\">links to: ' + post.content_href + '</div>');\nconst text = String(post.op_text ?? '').trim();\nconst out = [head.join('\\n'), '## Post', text || (post.op_text_known\n  ? '(the OP wrote no text)'\n  : '(the post\\'s own text is not in the listing for this kind of post, and the thread page has not been read — so it is unknown, not empty)')];\nif (comments) {\n  const total = read.num_comments;\n  const count = total != null && total !== comments.length ? comments.length + ' of ' + total + ' shown' : String(comments.length);\n  const lines = comments.map((c) => {\n    const depth = Math.min(Math.max(0, Number(c.depth ?? 0)), 6);\n    const op = post.author && c.author && c.author.toLowerCase() === String(post.author).toLowerCase();\n    const meta = [c.score == null ? null : c.score + ' points', when(c.created)].filter(Boolean).join(' · ');\n    return '<div class=\"rd-c rd-d' + depth + (op ? ' rd-own' : '') + '\"><div class=\"rd-cwho\">' + who(c.author) + (op ? ' (OP)' : '') + (meta ? ' · ' + meta : '') + '</div>\\n' + String(c.body ?? '').trim() + '\\n</div>';\n  });\n  out.push('## Comments (' + count + ')', lines.length ? lines.join('\\n') : '(nobody has replied to this post)');\n}\nreturn { json: { input: { post, read, ...(comments ? { comments } : {}) }, evidence: out.join('\\n\\n') } };"
 			}
 		},
 		{
-			"id": "read-it-",
-			"name": "Read it?",
-			"type": "n8n-nodes-base.if",
-			"typeVersion": 2.2,
+			"id": "qualify",
+			"name": "Qualify",
+			"type": "@reduck-ai/n8n-nodes-reduck.reduck",
+			"typeVersion": 1,
 			"position": [
-				1970,
-				300
+				1400,
+				0
+			],
+			"parameters": {
+				"resource": "review",
+				"operation": "request",
+				"prompt": "Reddit qualify",
+				"instructions": "=You decide whether a Reddit thread is worth showing to the owner — the person whose company is described below — as a chance to reply. T1 and T2 put it in front of a human; No drops it for good.\n\n\n## Who we are\n\n{{ $('Answers').first().json.company }}\n\n## Who we serve, and what breaks for them\n\n{{ $('Answers').first().json.icp }}\n\n## Reading the thread\n\nThe same judgment runs twice on growing evidence, and which read you are making is visible in the Evidence itself.\n\n- **No Comments section** — you are PRE-SCREENING on the post alone, and the only thing your verdict decides is whether the thread is worth fetching in full. Where the post leaves the buyer or the workflow genuinely UNSTATED, pass it up rather than out: an unfetched thread is never looked at again, so a wrong 'No' here is permanent and invisible, while a wrong T1 costs one page fetch. That latitude covers SILENCE and nothing else. A post with no body is judged on its title alone: a title that names a shape in \"Who we serve\" passes, any other is No. When the post itself states the thing that decides — the author builds a substitute, the subject is one nothing we sell would touch, there is no ask at all — it is decided, so decide it. And never promote on speculation about what the comments MIGHT say; you weigh the words in front of you, exactly as in the deciding read.\n- **A Comments section is present** — this is the DECIDING read, and everything in it is evidence ABOUT THE OP'S ASK. Comments marked `(OP)` are the author's own words and weigh exactly as much as the post: people volunteer under a post what they never put in it, and it routinely cuts the other way (\"there's no audience for now\", \"I'm a broke student\", or equally \"we're rolling this out to 200 stores\"). An OP who says in the thread that their problem is now solved has no pain left: No. Weigh what you find in either direction — a thread the post alone would have engaged can end at 'No', and one that looked thin can rise.\n\n**The pain must be the OP's.** A comment by anyone else can corroborate the OP's ask or cut against it; it can never SUPPLY one. We reply to the OP and to nobody else, so a thread whose author has no pain is 'No' however sharp the pain in the replies — a weekly \"what did you build this week?\" check-in is fifty strangers' show-and-tell, not fifty prospects, and the one commenter there who is blocked on something is not who we would be answering.\n\n## Judgment\n\nReturn the tier. Work through the three questions IN ORDER — the first that answers decides the tier:\n\n- First: same layer, off topic, or no pain of the OP's own? → No.\n- Second: the pain described in \"Who we serve\", voiced by somebody who HAS it? → T1.\n- Third: it could be ours — a shape in \"Who we serve\" is plausibly there — but the evidence does not settle it? → T2. Never No on a doubt.\n\n**No — disqualified, two distinct ways, and both are read off \"Who we serve\" rather than from any list here.**\n\n(a) **Same layer** — the author BUILDS OR SELLS A CURE for the pain described there, rather than HAVING it. That is the whole test. Mid-build or launched makes no difference: someone doing \"market research\" for their own same-layer tool, or posting \"link in the comments\", is a competitor courting our audience, not a prospect — we never reply to competitors.\n\n(b) **Off topic** — ask \"would what we sell actually fix this?\" If nothing in \"Who we are\" would address the pain, it is not ours, whatever the domain, and \"Who we serve\" names the near-misses this install keeps meeting. Also No: the right persona with NO PAIN OF THEIR OWN — a beginner asking where to start, what to learn or which free tools exist, a lessons-learned write-up, a think-piece inviting opinions, \"give me ideas\", engagement-bait. Being in our audience is not being stuck in our pain — though an ask that names one of the shapes in \"Who we serve\" is that shape, however beginner the asker (see T1). 'No' drops the thread — no reply is drafted.\n\nFour shapes are 'No' whatever the domain, because none of them is a pain anybody could sell into:\n\n- **A WISH IS NOT A PAIN.** Wanting more capability, more autonomy, fewer restrictions — with no task named that they are blocked on — describes a leash, not a wall. This is about a wish with NO SHAPE attached: when what they want IS one of the shapes in \"Who we serve\", the shape decides and the vagueness of the ask does not. There is nothing to answer until they say what they need DONE, and the moment they do, the task decides the tier: \"it blocks some very simple automations that I need\" names one, \"give it full permissions\" does not.\n- **A ONE-OFF IS NOT A WORKFLOW.** A task that is over once it is done is No. Many targets is not a repeat and a big one-off is still a one-off — the latest reports for each country on a list is one pull, however long the list: nothing comes back, so there is nothing to keep running. The test is whether they will run it AGAIN — a daily digest, a weekly export, a standing watch, a round that goes on for months all recur; \"get me X\" does not.\n- **SOMEBODY ELSE'S PRODUCT IS NOT OUR PAIN.** When the ask is to make another company's feature, integration, setting or policy work — it stopped, it flickers, it now refuses, where is the toggle — the answer is that vendor's fix, not a different tool, even when a web task sits behind it: No. So is a post whose subject is another company's launch, funding round, benchmark or strategy when the author reports no workflow of their own — they are reading the market, not stuck in it. Ending on a question does not rescue it: \"anyone actually using it in production?\" asks the sub to evaluate a product, and there is nothing of the author's to unblock. The tell is whose hands were on the keyboard: failures the author HIT THEMSELVES and brought to the sub are the pain; relaying what a vendor claims and asking whether it holds up is curiosity. When the product discussed sits at OUR layer, this is (a) seen from the other side.\n- **A BROADCAST IS NOT AN ASK.** A report with no question for the reader, or addressed over the reader's head to a third party who is not in the thread (\"do brands even realise?\"), leaves nothing to reply to — and is usually an advert for whatever produced the findings.\n\n**T1** — the pain described in \"Who we serve\", in any of the shapes named there, voiced by somebody who has it: a user, or a builder whose product sits ON TOP of what we sell. A NAMED SHAPE QUALIFIES BY CONSTRUCTION, however vague the ask: \"best practices for doing X on <platform>\" from somebody who wants their agent doing it is one of ours, and so is a goal stated without a plan — they do not have to have diagnosed their own problem for it to be the problem we solve. What must be concrete is the SHAPE, never the sentence. Reporting concrete failures of that kind and ASKING THE SUB about them IS the pain — a study, findings or benchmark framing counts exactly like \"help, I'm stuck\", provided there is an ask (see A BROADCAST above). SHOPPING WITHIN OUR CATEGORY is T1 too: someone comparing tools that do what we do, on reliability, limits, risk or price, is a buyer in our aisle rather than an off-topic provider question — whoever they are and whatever they run on, and a tight budget or wanting a free tier changes nothing. Partial scope does not downgrade: when the ask spans several surfaces and our part alone is a substantial direct answer, it is T1 — answer that part and be honest about the rest. And the qualifying ask need not be the thread's MAIN topic: an explicit one buried inside an otherwise off-topic question qualifies on its own, because we reply to the person rather than to the headline.\n\n**T2** — RECALL, NOT PRECISION: it could be ours, but the evidence does not settle it — the shape is half-named, the OP's own stake is unclear, or they ask to repair another vendor's integration for a job that is ours. T2 puts the thread in front of a human, who rejects it at the cost of one look; No loses it for good. A thread with nothing of ours in it is still No.\n\n## Key principles\n\n- **Substitute vs stackable, judged by WHICH SIDE OF THE PAIN they are on, never by maturity.** Anyone building a CURE for the pain in \"Who we serve\" is 'No', launched or not; anyone who HAS that pain is a prospect. Having ADOPTED someone else's half-solution is proof of the pain, not competition.\n- **Concrete beats conceptual.** T1 needs a workflow or system the author is blocked on or asking to make work — \"how do you handle X\", \"any fallbacks you've discovered\", \"what do you actually do when Y\". The concrete task may arrive wrapped in an architectural argument: what matters is whether the author is REPORTING their own experience or INVENTING a scenario to illustrate. A situation they recount repeatedly hitting in their own operations is concrete, however generically described and however essay-like the surrounding argument: T1 when they ask what others do about it. A post may do BOTH — argue a thesis and ask what others actually do; the practices question wins. When there is nothing of their own to unblock and the ONLY ask is to critique the worldview, it is No.\n- **Literal-answer test.** If what we sell is the direct answer to the actual question asked, it is T1 — do not downgrade because the author's broader business is uncertain, because a secondary surface is out of scope, or because they are technical enough to have tried other tools. The question may be prospective: someone scoping a workflow they have not built yet, asking what tools reach it and what the risks are, is asking a buying question. (The essay boundary is asking for OPINIONS on a worldview; asking for TOOLING and its risks is procurement.)\n- **Size the PAIN, never the wallet.** Who is asking has no bearing on the tier. Hobbyist or company, laptop or phone, free tier or paid, their own errand or their employer's — a tight budget, \"just me, no company\", \"I'm a beginner\" are means and skill, and say nothing about whether the pain is real. The only question is whether it is a pain someone could build a product on: does the same need come back, for many people, across many places? What disqualifies is a pain that is over when the task is, or one that exists for this person alone.\n\nBeware keyword traps: a word from our domain is not the pain — what qualifies is the thing the author cannot do, never the vocabulary they said it in. Be decisive; do not stretch to qualify a weak fit. Tie-breaks: torn between T1 and T2 → T1 (the human gate is cheap, and a reachable prospect lost is dearer than a review). Torn between T2 and No → T2: a wrong T2 costs one look, a wrong No costs the prospect. A persona with nothing of ours in the ask is still No — and naming one of the platforms or shapes in \"Who we serve\" is never nothing, however vague the ask.",
+				"answer": "{\n  \"type\": \"object\",\n  \"required\": [\n    \"tier\"\n  ],\n  \"properties\": {\n    \"tier\": {\n      \"enum\": [\n        \"T1\",\n        \"T2\",\n        \"No\"\n      ],\n      \"type\": \"string\",\n      \"description\": \"T1: the OP has the pain we fix; T2: it could be ours, the evidence does not settle it; No: drop it\"\n    }\n  },\n  \"additionalProperties\": false\n}",
+				"css": "\n.rv-evidence { font-size: var(--font-size-body); }\n.rv-evidence .rd-byline { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline;\n\tcolor: var(--text-color-tertiary); font-size: var(--font-size-small); margin-bottom: 4px; }\n.rv-evidence h1 { font-size: var(--font-size-title-small); font-weight: 700; line-height: 1.25;\n\tmargin: 0 0 8px; }\n.rv-evidence .rd-link { color: var(--text-color-tertiary); font-size: var(--font-size-caption);\n\toverflow-wrap: anywhere; margin-bottom: 2px; }\n/* THE SECTION LABELS STAY QUIET. \"Post\" and \"Comments (8)\" are the renderer's own scaffolding\n   rather than anything the OP wrote, so they read as the rail above a block. */\n.rv-evidence h2 { font: 600 var(--font-size-caption) ui-monospace, monospace; text-transform: uppercase;\n\tletter-spacing: .09em; color: var(--text-color-tertiary); margin: 22px 0 8px; }\n/* ── the comment thread — one rule per level, which is the whole of Reddit's nesting ──\n   The step is a MARGIN and the rule is a BORDER on the same element, so a reply sits inside its\n   parent's rule the way a browser draws a quote. Six levels because the renderer caps depth there;\n   past it a thread stops stepping right rather than running out of the column. */\n.rv-evidence .rd-c { border-left: 2px solid var(--color-grey-700); padding: 6px 0 6px 12px;\n\tmargin: 8px 0; }\n.rv-evidence .rd-d1 { margin-left: 16px; }\n.rv-evidence .rd-d2 { margin-left: 32px; }\n.rv-evidence .rd-d3 { margin-left: 48px; }\n.rv-evidence .rd-d4 { margin-left: 64px; }\n.rv-evidence .rd-d5 { margin-left: 80px; }\n.rv-evidence .rd-d6 { margin-left: 96px; }\n/* THE AUTHOR'S OWN REPLIES ARE MARKED, and it is the one distinction in this sheet that carries\n   weight rather than shape: what the OP says under their own post weighs as much as the post\n   (the \"(OP)\" mark, above), and a reader scanning a long thread has to be able to find those. */\n.rv-evidence .rd-own { border-left-color: var(--color-orange-400); }\n.rv-evidence .rd-cwho { color: var(--text-color-tertiary); font-size: var(--font-size-small);\n\tmargin-bottom: 4px; }\n.rv-evidence .rd-own > .rd-cwho { color: var(--color-orange-400); font-weight: 600; }\n",
+				"input": "={{ $json.input }}",
+				"evidence": "={{ $json.evidence }}",
+				"options": {
+					"accept": true,
+					"ref": "={{ $json.input.post.url }}"
+				}
+			},
+			"credentials": {}
+		},
+		{
+			"id": "advances",
+			"name": "Yes or Maybe?",
+			"type": "n8n-nodes-base.if",
+			"typeVersion": 2,
+			"position": [
+				1600,
+				0
 			],
 			"parameters": {
 				"conditions": {
 					"options": {
 						"caseSensitive": true,
 						"leftValue": "",
-						"typeValidation": "loose",
+						"typeValidation": "strict",
 						"version": 2
 					},
+					"combinator": "and",
 					"conditions": [
 						{
-							"id": "read",
-							"leftValue": "={{ $json.read }}",
+							"id": "tier",
+							"leftValue": "={{ ['T1', 'T2'].includes($json.output.tier) }}",
 							"rightValue": "",
 							"operator": {
 								"type": "boolean",
@@ -400,23 +260,54 @@
 								"singleValue": true
 							}
 						}
-					],
-					"combinator": "and"
+					]
 				},
 				"options": {}
 			}
 		},
 		{
-			"id": "read-thread",
-			"name": "Read thread",
+			"id": "read",
+			"name": "Thread read?",
+			"type": "n8n-nodes-base.if",
+			"typeVersion": 2,
+			"position": [
+				1800,
+				0
+			],
+			"parameters": {
+				"conditions": {
+					"options": {
+						"caseSensitive": true,
+						"leftValue": "",
+						"typeValidation": "strict",
+						"version": 2
+					},
+					"combinator": "and",
+					"conditions": [
+						{
+							"id": "read",
+							"leftValue": "={{ Boolean($json.input.comments) }}",
+							"rightValue": "",
+							"operator": {
+								"type": "boolean",
+								"operation": "true",
+								"singleValue": true
+							}
+						}
+					]
+				},
+				"options": {}
+			}
+		},
+		{
+			"id": "page",
+			"name": "Thread page",
 			"type": "@reduck-ai/n8n-nodes-reduck.reduck",
 			"typeVersion": 1,
 			"position": [
-				2080,
-				300
+				2000,
+				160
 			],
-			"onError": "continueRegularOutput",
-			"credentials": {},
 			"parameters": {
 				"script": {
 					"__rl": true,
@@ -426,7 +317,7 @@
 				"args": {
 					"mappingMode": "defineBelow",
 					"value": {
-						"url": "={{ $json.url }}",
+						"url": "={{ $json.input.post.url }}",
 						"all_comments": true
 					},
 					"matchingColumns": [],
@@ -454,281 +345,161 @@
 				"browser": "extension",
 				"deviceId": "extension",
 				"simplify": true
-			}
+			},
+			"credentials": {}
 		},
 		{
-			"id": "thread-with-comments",
-			"name": "Thread with comments",
+			"id": "person",
+			"name": "One per person",
 			"type": "n8n-nodes-base.code",
 			"typeVersion": 2,
 			"position": [
-				2300,
-				300
+				2000,
+				-100
 			],
 			"parameters": {
-				"mode": "runOnceForAllItems",
-				"jsCode": "// The thread as the deciding read sees it: the post from its own page, every comment, and the\n// community's rules when we know them. A thread whose page could not be read is dropped.\nconst picks = $('Read it?').all();\nconst rules = $('Config').first().json.rules ?? {};\nconst out = [];\n$input.all().forEach((r, i) => {\n  const t = picks[r.pairedItem?.item ?? i].json;\n  const page = r.json.result;\n  if (!page) return;\n  const comments = page.comments ?? [];\n  const lines = comments.map((c) => {\n    const pad = '  '.repeat(Math.min(Math.max(0, c.depth ?? 0), 6));\n    const who = c.author ? `u/${c.author}` : 'u/(deleted)';\n    // \"(OP)\" marks the author's own words under their own post: they weigh as much as the post.\n    const op = c.author && c.author.toLowerCase() === t.author.toLowerCase() ? ' (OP)' : '';\n    const meta = [c.score != null && `${c.score} points`, c.created].filter(Boolean).join(' · ');\n    const body = String(c.body ?? '').trim().replace(/\\n/g, `\\n${pad}`);\n    return `${pad}${who}${op}${meta ? ` · ${meta}` : ''}\\n${pad}${body}`;\n  });\n  const total = page.num_comments;\n  const count = total != null && total !== comments.length ? `${comments.length} of ${total} shown` : `${comments.length}`;\n  const post = String(page.op_text ?? '').trim() || '(the OP wrote no text)';\n  const sections = [\n    t.head,\n    `## Post\\n\\n${post}`,\n    `## Comments (${count})\\n\\n${lines.length ? lines.join('\\n\\n') : '(nobody has replied to this post)'}`,\n  ];\n  // No rules section at all when we never wrote them down: the prompt reads that absence as\n  // \"take the strictest reading\".\n  if (rules[t.subreddit]) sections.push(`## Subreddit rules: r/${t.subreddit}\\n\\n${rules[t.subreddit]}`);\n  out.push({\n    json: { ...t, evidence: sections.join('\\n\\n'), thread: threadHtml(page, comments, count, t.author) },\n    pairedItem: { item: r.pairedItem?.item ?? i },\n  });\n});\nreturn out;\n\n// THE SAME THREAD FOR THE HUMAN, as the review page draws it: the post, then the comment tree as\n// nested lists, which is the nesting Reddit draws. Plain tags only: n8n's form keeps no class or\n// style, so the page's sheet styles the structure. Everything Reddit wrote is escaped.\nfunction threadHtml(page, comments, count, author) {\n  const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n  const paras = (s) => esc(s).trim().split(/\\n\\s*\\n/).map((p) => p.split('\\n').map((l) => l.trim()).join('<br>')).filter(Boolean).map((p) => `<p>${p}</p>`).join('');\n  let html = `<div>${paras(page.op_text) || '<p><i>The OP wrote no text.</i></p>'}</div><h4>Comments (${count})</h4>`;\n  if (!comments.length) return html + '<p><i>Nobody has replied yet.</i></p>';\n  // A long thread is cut, not dropped: the page stays light and the link has the rest.\n  const LIMIT = 60000;\n  const open = [];\n  for (const c of comments) {\n    if (html.length > LIMIT) break;\n    const d = Math.min(Math.max(0, c.depth ?? 0), 6);\n    while (open.length > d + 1) { html += '</li></ul>'; open.pop(); }\n    if (open.length === d + 1) html += '</li>';\n    while (open.length < d + 1) { html += '<ul>'; open.push(d); }\n    const op = c.author && c.author.toLowerCase() === author.toLowerCase() ? ' <i>OP</i>' : '';\n    const meta = [c.score != null && `${c.score} point${c.score === 1 ? '' : 's'}`, String(c.created ?? '').slice(0, 10)].filter(Boolean).join(' · ');\n    html += `<li><b>u/${esc(c.author ?? '(deleted)')}</b>${op} <span>${meta}</span>${paras(c.body)}`;\n  }\n  while (open.length) { html += '</li></ul>'; open.pop(); }\n  return html.length > LIMIT ? html + '<p><i>The thread is longer: read the rest on Reddit.</i></p>' : html;\n}"
+				"jsCode": "// One reply per person: of each author's threads that qualified, the best one. Tier first, then\n// score, then the newest.\nconst RANK = { T1: 0, T2: 1 };\nconst seen = new Set();\nreturn $input.all()\n  .map((item, i) => ({ json: item.json, pairedItem: { item: i } }))\n  .sort((a, b) => RANK[a.json.output.tier] - RANK[b.json.output.tier]\n    || (b.json.input.read?.score ?? 0) - (a.json.input.read?.score ?? 0)\n    || String(b.json.input.post.created).localeCompare(String(a.json.input.post.created)))\n  .filter(({ json }) => !seen.has(json.input.post.author.toLowerCase()) && seen.add(json.input.post.author.toLowerCase()));"
 			}
 		},
 		{
-			"id": "decide-and-draft",
-			"name": "Decide and draft",
-			"type": "n8n-nodes-base.httpRequest",
-			"typeVersion": 4.2,
-			"position": [
-				2520,
-				300
-			],
-			"retryOnFail": true,
-			"maxTries": 3,
-			"waitBetweenTries": 5000,
-			"credentials": {},
-			"parameters": {
-				"method": "POST",
-				"url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
-				"authentication": "predefinedCredentialType",
-				"nodeCredentialType": "googlePalmApi",
-				"sendBody": true,
-				"contentType": "json",
-				"specifyBody": "json",
-				"jsonBody": "={{ JSON.stringify({\n  systemInstruction: { parts: [{ text: $('Prompts').first().json.decide }] },\n  contents: [{ role: 'user', parts: [{ text: $json.evidence }] }],\n  generationConfig: {\n    thinkingConfig: { thinkingLevel: 'low' },\n    responseMimeType: 'application/json',\n    responseSchema: {\n  \"type\": \"object\",\n  \"required\": [\n    \"tier\",\n    \"reply\"\n  ],\n  \"properties\": {\n    \"tier\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"T1\",\n        \"T2\",\n        \"No\"\n      ]\n    },\n    \"reply\": {\n      \"type\": \"string\",\n      \"description\": \"the reply exactly as it would be posted; empty when the tier is No\"\n    }\n  }\n},\n  },\n}) }}",
-				"options": {
-					"batching": {
-						"batch": {
-							"batchSize": 10,
-							"batchInterval": 0
-						}
-					},
-					"timeout": 120000
-				}
-			}
-		},
-		{
-			"id": "verdict",
-			"name": "Verdict",
-			"type": "n8n-nodes-base.code",
+			"id": "drafted",
+			"name": "Not drafted before",
+			"type": "n8n-nodes-base.removeDuplicates",
 			"typeVersion": 2,
 			"position": [
-				2630,
-				300
+				2200,
+				-100
 			],
 			"parameters": {
-				"mode": "runOnceForAllItems",
-				"jsCode": "// The draft as a row. It waits for a human only when it is worth a reply and carries no link:\n// Reddit's composer never submits a comment with one.\nconst threads = $('Thread with comments').all();\nreturn $input.all().map((r, i) => {\n  const t = threads[r.pairedItem?.item ?? i].json;\n  let a = {};\n  try {\n    a = JSON.parse((r.json.candidates?.[0]?.content?.parts ?? []).filter((p) => p.text && !p.thought).map((p) => p.text).join(''));\n  } catch {}\n  const reply = String(a.reply ?? '').trim();\n  const link = /(https?:\\/\\/|www\\.)/i.test(reply);\n  return { json: {\n    url: t.url, title: t.title, author: t.author, subreddit: t.subreddit, thread: t.thread,\n    tier: a.tier ?? 'No', reply,\n    status: ['T1', 'T2'].includes(a.tier) && reply && !link ? 'pending' : 'skipped',\n    error: link ? 'the draft carries a link' : '',\n  } };\n});"
-			}
-		},
-		{
-			"id": "record",
-			"name": "Record",
-			"type": "n8n-nodes-base.dataTable",
-			"typeVersion": 1.1,
-			"position": [
-				2860,
-				300
-			],
-			"parameters": {
-				"resource": "row",
-				"operation": "insert",
-				"dataTableId": {
-					"__rl": true,
-					"mode": "name",
-					"value": "reddit_engage"
-				},
-				"columns": {
-					"mappingMode": "defineBelow",
-					"value": {
-						"status": "={{ $json.status }}",
-						"reply": "={{ $json.reply }}",
-						"tier": "={{ $json.tier }}",
-						"url": "={{ $json.url }}",
-						"title": "={{ $json.title }}",
-						"author": "={{ $json.author }}",
-						"subreddit": "={{ $json.subreddit }}",
-						"thread": "={{ $json.thread }}",
-						"error": "={{ $json.error }}"
-					},
-					"matchingColumns": [],
-					"schema": [
-						{
-							"id": "status",
-							"displayName": "status",
-							"required": false,
-							"defaultMatch": false,
-							"display": true,
-							"type": "string",
-							"readOnly": false,
-							"removed": false
-						},
-						{
-							"id": "reply",
-							"displayName": "reply",
-							"required": false,
-							"defaultMatch": false,
-							"display": true,
-							"type": "string",
-							"readOnly": false,
-							"removed": false
-						},
-						{
-							"id": "tier",
-							"displayName": "tier",
-							"required": false,
-							"defaultMatch": false,
-							"display": true,
-							"type": "string",
-							"readOnly": false,
-							"removed": false
-						},
-						{
-							"id": "url",
-							"displayName": "url",
-							"required": false,
-							"defaultMatch": false,
-							"display": true,
-							"type": "string",
-							"readOnly": false,
-							"removed": false
-						},
-						{
-							"id": "title",
-							"displayName": "title",
-							"required": false,
-							"defaultMatch": false,
-							"display": true,
-							"type": "string",
-							"readOnly": false,
-							"removed": false
-						},
-						{
-							"id": "author",
-							"displayName": "author",
-							"required": false,
-							"defaultMatch": false,
-							"display": true,
-							"type": "string",
-							"readOnly": false,
-							"removed": false
-						},
-						{
-							"id": "subreddit",
-							"displayName": "subreddit",
-							"required": false,
-							"defaultMatch": false,
-							"display": true,
-							"type": "string",
-							"readOnly": false,
-							"removed": false
-						},
-						{
-							"id": "thread",
-							"displayName": "thread",
-							"required": false,
-							"defaultMatch": false,
-							"display": true,
-							"type": "string",
-							"readOnly": false,
-							"removed": false
-						},
-						{
-							"id": "error",
-							"displayName": "error",
-							"required": false,
-							"defaultMatch": false,
-							"display": true,
-							"type": "string",
-							"readOnly": false,
-							"removed": false
-						}
-					]
-				},
+				"operation": "removeItemsSeenInPreviousExecutions",
+				"dedupeValue": "={{ $json.input.post.author.toLowerCase() }}",
 				"options": {}
 			}
 		},
 		{
-			"id": "review-drafts",
-			"name": "Review drafts",
-			"type": "n8n-nodes-base.formTrigger",
-			"typeVersion": 2.6,
+			"id": "rules",
+			"name": "Subreddit rules",
+			"type": "@reduck-ai/n8n-nodes-reduck.reduck",
+			"typeVersion": 1,
+			"position": [
+				2400,
+				-100
+			],
+			"parameters": {
+				"script": {
+					"__rl": true,
+					"mode": "address",
+					"value": "reduck/reddit.com/get_subreddit_info"
+				},
+				"args": {
+					"mappingMode": "defineBelow",
+					"value": {
+						"subreddit": "={{ $json.input.post.place }}"
+					},
+					"matchingColumns": [],
+					"schema": [
+						{
+							"id": "subreddit",
+							"displayName": "subreddit",
+							"required": true,
+							"defaultMatch": false,
+							"display": true,
+							"type": "string",
+							"canBeUsedToMatch": false
+						}
+					]
+				},
+				"browser": "managed",
+				"options": {
+					"country": "US"
+				},
+				"simplify": true
+			},
+			"credentials": {},
+			"onError": "continueRegularOutput"
+		},
+		{
+			"id": "reply-evidence",
+			"name": "Reply evidence",
+			"type": "n8n-nodes-base.code",
+			"typeVersion": 2,
+			"position": [
+				2600,
+				-100
+			],
+			"parameters": {
+				"mode": "runOnceForEachItem",
+				"jsCode": "// What the drafter reads: the tier the thread qualified at, the thread, then its community's rules.\n// No rules (the read failed) leaves the section out, which the wording reads as \"take the strictest\".\nconst { input, output: { tier } } = $('Not drafted before').item.json;\nconst rules = ($json.result?.rules ?? []).map((r) => '- **' + String(r.title ?? '').trim() + '** — ' + String(r.body ?? '').trim()).join('\\n');\nreturn { json: {\n  input: { ...input, tier, ...(rules ? { rules } : {}) },\n  evidence: ['<div class=\"rd-tier\">Tier: ' + tier + '</div>', $('Render').item.json.evidence,\n    ...(rules ? ['## Subreddit rules — r/' + input.post.place + '\\n\\n' + rules] : [])].join('\\n\\n')\n} };"
+			}
+		},
+		{
+			"id": "reply",
+			"name": "Draft reply",
+			"type": "@reduck-ai/n8n-nodes-reduck.reduck",
+			"typeVersion": 1,
+			"position": [
+				2800,
+				-100
+			],
+			"parameters": {
+				"resource": "review",
+				"operation": "request",
+				"prompt": "Reddit reply",
+				"instructions": "=The Evidence carries the Tier (judged upstream), the thread, and that community's rules when we know them — shown none, take the strictest reading. Comments are context; you answer the OP, and `(OP)` marks the author's own words. T1: name their pain head-on. T2: stay on what they asked.\n\n## Who we are — the ceiling on any claim\n\n{{ $('Answers').first().json.company }}\n\n## Who we serve, and what breaks for them\n\n{{ $('Answers').first().json.icp }}\n\n## How the owner writes\n\n{{ $('Answers').first().json.style }}\n\n## What makes a reply INVALID — only these\n\nA reply that avoids all of them is valid, however it is phrased:\n\n- it carries a URL — the composer silently refuses one, so it never posts;\n- it opens with canned sympathy (\"I feel your pain\", \"that's a classic…\") or uses marketing language — the language of an ad: superlatives about the product, slogans, \"seamless\", \"game-changing\", \"revolutionary\", a close written as ad copy. Plain enthusiasm is the owner's own register and is NOT marketing: \"works great\", \"then it's super fast!\", an exclamation mark, a \":D\";\n- it asserts something it cannot know — their stack, their skill, their budget, a cause nothing in the post points to. Explaining the mechanism behind a symptom they DESCRIBED is the opposite of this and is what a good reply is for;\n- it pitches before it helps, or is only a pitch;\n- its offer answers a question they did not ask (a thread choosing between Windows and Linux is not asking for a browser tool — helping first does not license it), or the ask is one the owner does not serve: a platform's own moderation has warned or banned the OP's account and they want a way past that ban. Anti-bot friction on a page they may use — a WAF, a captcha, a fingerprint check, a block that lifts when they open it by hand — is the pain the owner serves, not this;\n- it is FORMATTED as a manual rather than a reply: markdown headings, bolded labels, or numbered items (\"1.\", \"2.\"). This is about the MARKUP only — dashes are prose, and so are the words \"First…\" and \"Second…\" inside them;\n- **its offer does not NAME what is offered, or says nothing about it** — an offer carries the product's own name, as \"How the owner writes\" gives it, and one thing about what it DOES. What fails is a claim of fit with no thing (\"I'm building a tool that does exactly this\") or a thing with no name (\"an MCP I built\"), which the OP cannot go and look for. THE DOING HALF HAS A DELIBERATELY LOW BAR: how it attaches (\"it connects to your Chrome extension\") or one mechanism (\"it writes scripts and runs them\") is enough. The name is never a URL;\n- **the post leaves nothing to act on — no task, no site, no symptom — and the reply asks them nothing**, prescribing to a need it invented. A post that names its subject and asks how people handle it does not trigger this;\n- **it makes an offer and opens no door for it** — names the product and then leaves them nothing to say back: no DM invite, no question, no offer to look at their case or share more, no naming of where to try it. A pitch with no door is an ad line. The door may sit in the first sentence as easily as the last, and inviting them to try it and report back is one. A reply that makes NO offer needs no door: a straight answer, with nothing pitched, is complete as it stands;\n- it pads — sentences carrying no insight the OP lacked: step-by-step walkthroughs, install instructions, restating what they already said, or a question APPENDED after the reply has already answered and made its offer (\"what does your flow look like?\" as the closing paragraph of a reply that needed nothing from them to say what it said). A question the answer turns on, asked first, is never padding — and neither is one asked because the need is niche or unstated: asking them to be specific there is how you avoid guessing;\n- it tells them they must build what \"Who we are\" says already exists;\n- it breaks a rule the community states about what a post IS — a URL where links are banned, an off-topic subject, a naked ad. A rule about commercial products, promotion, or vendors bites on selling, whatever its wording: naming what the owner built, free to try, after the help, is sharing, and a DM invite is a door, not a private discussion.\n\nEverything above this list is drafting guidance: it shapes a good reply and never on its own makes one invalid. There is NO length rule, no required opener, no required shape — a single well-aimed question is a complete, valid reply. A reply that makes NO OFFER breaks no rule by having none: the naming rule bites only on a reply that does offer.\n\n**The Tier sets directness, never length or substance.** T1: the OP's pain is squarely ours, so name it head-on. T2: the fit is partial, so stay on what they actually asked and offer only if it is unmistakably relevant.\n\nReturn the reply exactly as it would be posted — no preamble, no quotation marks.",
+				"answer": "{\n  \"type\": \"object\",\n  \"required\": [\n    \"reply\"\n  ],\n  \"properties\": {\n    \"reply\": {\n      \"type\": \"string\",\n      \"pattern\": \"^(?![\\\\s\\\\S]*(?:https?://|www\\\\.))[\\\\s\\\\S]*$\",\n      \"description\": \"the reply, exactly as it would be posted\"\n    }\n  },\n  \"additionalProperties\": false\n}",
+				"css": "\n.rv-evidence { font-size: var(--font-size-body); }\n.rv-evidence .rd-byline { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline;\n\tcolor: var(--text-color-tertiary); font-size: var(--font-size-small); margin-bottom: 4px; }\n.rv-evidence h1 { font-size: var(--font-size-title-small); font-weight: 700; line-height: 1.25;\n\tmargin: 0 0 8px; }\n.rv-evidence .rd-link { color: var(--text-color-tertiary); font-size: var(--font-size-caption);\n\toverflow-wrap: anywhere; margin-bottom: 2px; }\n/* THE SECTION LABELS STAY QUIET. \"Post\" and \"Comments (8)\" are the renderer's own scaffolding\n   rather than anything the OP wrote, so they read as the rail above a block. */\n.rv-evidence h2 { font: 600 var(--font-size-caption) ui-monospace, monospace; text-transform: uppercase;\n\tletter-spacing: .09em; color: var(--text-color-tertiary); margin: 22px 0 8px; }\n/* ── the comment thread — one rule per level, which is the whole of Reddit's nesting ──\n   The step is a MARGIN and the rule is a BORDER on the same element, so a reply sits inside its\n   parent's rule the way a browser draws a quote. Six levels because the renderer caps depth there;\n   past it a thread stops stepping right rather than running out of the column. */\n.rv-evidence .rd-c { border-left: 2px solid var(--color-grey-700); padding: 6px 0 6px 12px;\n\tmargin: 8px 0; }\n.rv-evidence .rd-d1 { margin-left: 16px; }\n.rv-evidence .rd-d2 { margin-left: 32px; }\n.rv-evidence .rd-d3 { margin-left: 48px; }\n.rv-evidence .rd-d4 { margin-left: 64px; }\n.rv-evidence .rd-d5 { margin-left: 80px; }\n.rv-evidence .rd-d6 { margin-left: 96px; }\n/* THE AUTHOR'S OWN REPLIES ARE MARKED, and it is the one distinction in this sheet that carries\n   weight rather than shape: what the OP says under their own post weighs as much as the post\n   (the \"(OP)\" mark, above), and a reader scanning a long thread has to be able to find those. */\n.rv-evidence .rd-own { border-left-color: var(--color-orange-400); }\n.rv-evidence .rd-cwho { color: var(--text-color-tertiary); font-size: var(--font-size-small);\n\tmargin-bottom: 4px; }\n.rv-evidence .rd-own > .rd-cwho { color: var(--color-orange-400); font-weight: 600; }\n/* THE TIER IS THE reply WORDING'S OWN LINE, not the thread's: a verdict this app reached upstream,\n   shown so a reviewer reads the draft against the fit it was written for. */\n.rv-evidence .rd-tier { display: inline-block; border-radius: 999px; padding: 3px 10px;\n\tbackground: var(--color-grey-800); color: var(--text-color-secondary);\n\tfont: 600 var(--font-size-caption) ui-monospace, monospace; text-transform: uppercase;\n\tletter-spacing: .06em; margin-bottom: 4px; }\n",
+				"input": "={{ $json.input }}",
+				"evidence": "={{ $json.evidence }}",
+				"options": {
+					"tries": 3,
+					"ref": "={{ $json.input.post.url }}"
+				}
+			},
+			"credentials": {}
+		},
+		{
+			"id": "on-ruling",
+			"name": "On ruling",
+			"type": "@reduck-ai/n8n-nodes-reduck.reduckTrigger",
+			"typeVersion": 1,
 			"position": [
 				0,
-				800
+				400
 			],
 			"parameters": {
-				"authentication": "n8nUserAuth",
-				"formTitle": "Reddit drafts",
-				"formDescription": "Read the thread. Edit the reply. Approve, reject or skip.",
-				"formFields": {
-					"values": [
+				"pollTimes": {
+					"item": [
 						{
-							"fieldType": "html",
-							"html": "<p>Approve posts the reply on Reddit from your paired Chrome.</p>"
+							"mode": "everyMinute"
 						}
 					]
 				},
-				"options": {
-					"path": "reddit-review",
-					"buttonLabel": "Review next draft",
-					"appendAttribution": false,
-					"customCss": "\n:root {\n  color-scheme: dark;\n  --font-family: Inter, ui-sans-serif, system-ui, sans-serif;\n  --container-width: 640px;\n  --color-background: #111827;\n  --color-card-bg: #1f2937;\n  --color-card-border: #2c3644;\n  --color-card-shadow: transparent;\n  --color-header: #f3f4f6;\n  --color-header-subtext: #9ca3af;\n  --color-label: #9ca3af;\n  --color-input-bg: #111827;\n  --color-input-border: #2c3644;\n  --color-input-text: #f3f4f6;\n  --color-focus-border: #fb923c;\n  --color-required: #fb923c;\n  --color-html-text: #f3f4f6;\n  --color-html-link: #60a5fa;\n  --color-submit-btn-bg: #fb923c;\n  --color-submit-btn-text: #111827;\n  --font-size-header: 22px;\n  --font-size-label: 12px;\n  --font-size-input: 14px;\n  --font-size-paragraph: 14px;\n  --border-radius-card: 12px;\n  --border-radius-input: 8px;\n  --submit-btn-height: 44px;\n}\nbody { font-optical-sizing: auto; }\n.form-header h1 { font-weight: 600; }\n.form-label { font-weight: 500; }\nlabel.form-required::after { content: ''; }\n#submit-hint { display: none; }\nform textarea { font-family: var(--font-family); line-height: 1.6; min-height: 320px; }\na.next { display: inline-block; margin-top: 8px; padding: 12px 28px; border-radius: 8px; background: #fb923c; color: #111827; font-weight: 600; text-decoration: none; }\n.card:has(.multiselect) .form-header { display: none; }\n.form-group.html > p { margin: 0 0 6px; font-size: 12px; color: #9ca3af; }\n.form-group.html > p b { color: #d1d5db; font-weight: 500; }\n.form-group.html > p em { margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, #f97316 18%, #111827); color: #fb923c; font-style: normal; font-weight: 600; }\n.form-group.html h3 { margin: 4px 0 8px; font-size: 22px; font-weight: 600; line-height: 1.25; color: #f3f4f6; }\n.form-group.html div p, .form-group.html li p { margin: 0 0 8px; font-size: 14px; line-height: 1.55; color: #f3f4f6; }\n.form-group.html h4 { margin: 20px 0 8px; font-size: 12px; font-weight: 500; color: #9ca3af; }\n.form-group.html > ul { max-height: 460px; overflow-y: auto; padding: 0; border: 0; }\n.form-group.html ul { list-style: none; margin: 6px 0 0; padding-left: 14px; border-left: 2px solid #2c3644; }\n.form-group.html li > b { font-size: 12px; font-weight: 500; color: #d1d5db; }\n.form-group.html li > i { margin-left: 4px; padding: 0 6px; border-radius: 999px; background: color-mix(in srgb, #f97316 18%, #111827); color: #fb923c; font-style: normal; font-size: 10px; font-weight: 600; }\n.form-group.html li > span { margin-left: 4px; font-size: 10px; color: #9ca3af; }\n.multiselect[data-radio-select] { display: flex; gap: 8px; }\n.multiselect[data-radio-select] .multiselect-option { flex: 1; position: relative; margin: 0; }\n.multiselect[data-radio-select] .multiselect-checkbox { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }\n.multiselect[data-radio-select] label { flex: 1; padding: 11px 0; border: 1px solid #2c3644; border-radius: 8px; text-align: center; font-weight: 500; color: #d1d5db; cursor: pointer; }\n.multiselect-option:nth-child(1):has(:checked) label { background: color-mix(in srgb, #22c55e 18%, #111827); border-color: #22c55e; color: #86efac; }\n.multiselect-option:nth-child(2):has(:checked) label { background: color-mix(in srgb, #ef4444 18%, #111827); border-color: #ef4444; color: #fca5a5; }\n.multiselect-option:nth-child(3):has(:checked) label { background: #2c3644; border-color: #9ca3af; color: #f3f4f6; }\n"
-				}
-			}
+				"prompt": "Reddit reply"
+			},
+			"credentials": {}
 		},
 		{
-			"id": "next-draft",
-			"name": "Next draft",
-			"type": "n8n-nodes-base.dataTable",
-			"typeVersion": 1.1,
-			"position": [
-				220,
-				800
-			],
-			"alwaysOutputData": true,
-			"onError": "continueRegularOutput",
-			"parameters": {
-				"resource": "row",
-				"operation": "get",
-				"dataTableId": {
-					"__rl": true,
-					"mode": "name",
-					"value": "reddit_engage"
-				},
-				"matchType": "allConditions",
-				"filters": {
-					"conditions": [
-						{
-							"keyName": "status",
-							"condition": "eq",
-							"keyValue": "pending"
-						}
-					]
-				},
-				"limit": 1,
-				"orderBy": true,
-				"orderByColumn": "updatedAt",
-				"orderByDirection": "ASC"
-			}
-		},
-		{
-			"id": "any-draft-",
-			"name": "Any draft?",
+			"id": "approved",
+			"name": "Approved?",
 			"type": "n8n-nodes-base.if",
-			"typeVersion": 2.2,
+			"typeVersion": 2,
 			"position": [
-				440,
-				800
+				200,
+				400
 			],
 			"parameters": {
 				"conditions": {
 					"options": {
 						"caseSensitive": true,
 						"leftValue": "",
-						"typeValidation": "loose",
+						"typeValidation": "strict",
 						"version": 2
 					},
+					"combinator": "and",
 					"conditions": [
 						{
-							"id": "any",
-							"leftValue": "={{ !!$json.id }}",
+							"id": "verdict",
+							"leftValue": "={{ ['confirmed', 'edited'].includes($json.verdict) }}",
 							"rightValue": "",
 							"operator": {
 								"type": "boolean",
@@ -736,109 +507,20 @@
 								"singleValue": true
 							}
 						}
-					],
-					"combinator": "and"
-				},
-				"options": {}
-			}
-		},
-		{
-			"id": "decide",
-			"name": "Decide",
-			"type": "n8n-nodes-base.form",
-			"typeVersion": 2.5,
-			"position": [
-				660,
-				700
-			],
-			"parameters": {
-				"operation": "page",
-				"formFields": {
-					"values": [
-						{
-							"fieldType": "html",
-							"html": "={{ '<p><b>r/' + $json.subreddit + '</b> · u/' + $json.author + ' <em>' + $json.tier + '</em></p><h3>' + String($json.title).replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</h3><p><a href=\"' + $json.url + '\" target=\"_blank\">Open the thread on Reddit ↗</a></p>' + ($json.thread || '') }}"
-						},
-						{
-							"fieldLabel": "Reply",
-							"fieldName": "reply",
-							"fieldType": "textarea",
-							"defaultValue": "={{ $json.reply }}",
-							"requiredField": true
-						},
-						{
-							"fieldLabel": "Decision",
-							"fieldName": "decision",
-							"fieldType": "radio",
-							"fieldOptions": {
-								"values": [
-									{
-										"option": "Approve"
-									},
-									{
-										"option": "Reject"
-									},
-									{
-										"option": "Skip"
-									}
-								]
-							},
-							"requiredField": true
-						}
 					]
 				},
-				"options": {
-					"formTitle": "Reddit draft",
-					"buttonLabel": "Confirm",
-					"customCss": "\n:root {\n  color-scheme: dark;\n  --font-family: Inter, ui-sans-serif, system-ui, sans-serif;\n  --container-width: 640px;\n  --color-background: #111827;\n  --color-card-bg: #1f2937;\n  --color-card-border: #2c3644;\n  --color-card-shadow: transparent;\n  --color-header: #f3f4f6;\n  --color-header-subtext: #9ca3af;\n  --color-label: #9ca3af;\n  --color-input-bg: #111827;\n  --color-input-border: #2c3644;\n  --color-input-text: #f3f4f6;\n  --color-focus-border: #fb923c;\n  --color-required: #fb923c;\n  --color-html-text: #f3f4f6;\n  --color-html-link: #60a5fa;\n  --color-submit-btn-bg: #fb923c;\n  --color-submit-btn-text: #111827;\n  --font-size-header: 22px;\n  --font-size-label: 12px;\n  --font-size-input: 14px;\n  --font-size-paragraph: 14px;\n  --border-radius-card: 12px;\n  --border-radius-input: 8px;\n  --submit-btn-height: 44px;\n}\nbody { font-optical-sizing: auto; }\n.form-header h1 { font-weight: 600; }\n.form-label { font-weight: 500; }\nlabel.form-required::after { content: ''; }\n#submit-hint { display: none; }\nform textarea { font-family: var(--font-family); line-height: 1.6; min-height: 320px; }\na.next { display: inline-block; margin-top: 8px; padding: 12px 28px; border-radius: 8px; background: #fb923c; color: #111827; font-weight: 600; text-decoration: none; }\n.card:has(.multiselect) .form-header { display: none; }\n.form-group.html > p { margin: 0 0 6px; font-size: 12px; color: #9ca3af; }\n.form-group.html > p b { color: #d1d5db; font-weight: 500; }\n.form-group.html > p em { margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, #f97316 18%, #111827); color: #fb923c; font-style: normal; font-weight: 600; }\n.form-group.html h3 { margin: 4px 0 8px; font-size: 22px; font-weight: 600; line-height: 1.25; color: #f3f4f6; }\n.form-group.html div p, .form-group.html li p { margin: 0 0 8px; font-size: 14px; line-height: 1.55; color: #f3f4f6; }\n.form-group.html h4 { margin: 20px 0 8px; font-size: 12px; font-weight: 500; color: #9ca3af; }\n.form-group.html > ul { max-height: 460px; overflow-y: auto; padding: 0; border: 0; }\n.form-group.html ul { list-style: none; margin: 6px 0 0; padding-left: 14px; border-left: 2px solid #2c3644; }\n.form-group.html li > b { font-size: 12px; font-weight: 500; color: #d1d5db; }\n.form-group.html li > i { margin-left: 4px; padding: 0 6px; border-radius: 999px; background: color-mix(in srgb, #f97316 18%, #111827); color: #fb923c; font-style: normal; font-size: 10px; font-weight: 600; }\n.form-group.html li > span { margin-left: 4px; font-size: 10px; color: #9ca3af; }\n.multiselect[data-radio-select] { display: flex; gap: 8px; }\n.multiselect[data-radio-select] .multiselect-option { flex: 1; position: relative; margin: 0; }\n.multiselect[data-radio-select] .multiselect-checkbox { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }\n.multiselect[data-radio-select] label { flex: 1; padding: 11px 0; border: 1px solid #2c3644; border-radius: 8px; text-align: center; font-weight: 500; color: #d1d5db; cursor: pointer; }\n.multiselect-option:nth-child(1):has(:checked) label { background: color-mix(in srgb, #22c55e 18%, #111827); border-color: #22c55e; color: #86efac; }\n.multiselect-option:nth-child(2):has(:checked) label { background: color-mix(in srgb, #ef4444 18%, #111827); border-color: #ef4444; color: #fca5a5; }\n.multiselect-option:nth-child(3):has(:checked) label { background: #2c3644; border-color: #9ca3af; color: #f3f4f6; }\n",
-					"appendAttribution": false
-				}
-			}
-		},
-		{
-			"id": "approve-",
-			"name": "Approve?",
-			"type": "n8n-nodes-base.if",
-			"typeVersion": 2.2,
-			"position": [
-				880,
-				700
-			],
-			"parameters": {
-				"conditions": {
-					"options": {
-						"caseSensitive": true,
-						"leftValue": "",
-						"typeValidation": "loose",
-						"version": 2
-					},
-					"conditions": [
-						{
-							"id": "approve",
-							"leftValue": "={{ $json.decision }}",
-							"rightValue": "Approve",
-							"operator": {
-								"type": "string",
-								"operation": "equals"
-							}
-						}
-					],
-					"combinator": "and"
-				},
 				"options": {}
 			}
 		},
 		{
-			"id": "post-comment",
+			"id": "post",
 			"name": "Post comment",
 			"type": "@reduck-ai/n8n-nodes-reduck.reduck",
 			"typeVersion": 1,
 			"position": [
-				1100,
-				620
+				400,
+				400
 			],
-			"onError": "continueRegularOutput",
-			"credentials": {},
 			"parameters": {
 				"script": {
 					"__rl": true,
@@ -848,15 +530,15 @@
 				"args": {
 					"mappingMode": "defineBelow",
 					"value": {
-						"url": "={{ $('Next draft').item.json.url }}",
-						"text": "={{ $('Decide').item.json.reply.replace(/\\r\\n/g, '\\n').trim() }}"
+						"url": "={{ $json.ref }}",
+						"text": "={{ $json.output.reply }}"
 					},
 					"matchingColumns": [],
 					"schema": [
 						{
 							"id": "url",
 							"displayName": "url",
-							"required": false,
+							"required": true,
 							"defaultMatch": false,
 							"display": true,
 							"type": "string",
@@ -865,7 +547,7 @@
 						{
 							"id": "text",
 							"displayName": "text",
-							"required": false,
+							"required": true,
 							"defaultMatch": false,
 							"display": true,
 							"type": "string",
@@ -876,178 +558,45 @@
 				"browser": "extension",
 				"deviceId": "extension",
 				"simplify": true
-			}
-		},
-		{
-			"id": "record-decision",
-			"name": "Record decision",
-			"type": "n8n-nodes-base.dataTable",
-			"typeVersion": 1.1,
-			"position": [
-				1320,
-				700
-			],
-			"parameters": {
-				"resource": "row",
-				"operation": "update",
-				"dataTableId": {
-					"__rl": true,
-					"mode": "name",
-					"value": "reddit_engage"
-				},
-				"matchType": "allConditions",
-				"filters": {
-					"conditions": [
-						{
-							"keyName": "id",
-							"condition": "eq",
-							"keyValue": "={{ $('Next draft').item.json.id }}"
-						}
-					]
-				},
-				"columns": {
-					"mappingMode": "defineBelow",
-					"value": {
-						"reply": "={{ $('Decide').item.json.reply.replace(/\\r\\n/g, '\\n').trim() }}",
-						"status": "={{ { Reject: 'rejected', Skip: 'pending' }[$('Decide').item.json.decision] ?? ($json.result?.permalink ? 'replied' : 'failed') }}",
-						"comment_url": "={{ $json.result?.permalink ? ($json.result.permalink.startsWith('http') ? $json.result.permalink : 'https://www.reddit.com' + $json.result.permalink) : '' }}",
-						"error": "={{ String($json.error ?? '').split('\\n')[0] }}"
-					},
-					"matchingColumns": [],
-					"schema": [
-						{
-							"id": "reply",
-							"displayName": "reply",
-							"required": false,
-							"defaultMatch": false,
-							"display": true,
-							"type": "string",
-							"readOnly": false,
-							"removed": false
-						},
-						{
-							"id": "status",
-							"displayName": "status",
-							"required": false,
-							"defaultMatch": false,
-							"display": true,
-							"type": "string",
-							"readOnly": false,
-							"removed": false
-						},
-						{
-							"id": "comment_url",
-							"displayName": "comment_url",
-							"required": false,
-							"defaultMatch": false,
-							"display": true,
-							"type": "string",
-							"readOnly": false,
-							"removed": false
-						},
-						{
-							"id": "error",
-							"displayName": "error",
-							"required": false,
-							"defaultMatch": false,
-							"display": true,
-							"type": "string",
-							"readOnly": false,
-							"removed": false
-						}
-					]
-				},
-				"options": {}
-			}
-		},
-		{
-			"id": "done",
-			"name": "Done",
-			"type": "n8n-nodes-base.form",
-			"typeVersion": 2.5,
-			"position": [
-				1540,
-				800
-			],
-			"parameters": {
-				"operation": "completion",
-				"respondWith": "showText",
-				"responseText": "={{ \"<style>\\n:root {\\n  color-scheme: dark;\\n  --font-family: Inter, ui-sans-serif, system-ui, sans-serif;\\n  --container-width: 640px;\\n  --color-background: #111827;\\n  --color-card-bg: #1f2937;\\n  --color-card-border: #2c3644;\\n  --color-card-shadow: transparent;\\n  --color-header: #f3f4f6;\\n  --color-header-subtext: #9ca3af;\\n  --color-label: #9ca3af;\\n  --color-input-bg: #111827;\\n  --color-input-border: #2c3644;\\n  --color-input-text: #f3f4f6;\\n  --color-focus-border: #fb923c;\\n  --color-required: #fb923c;\\n  --color-html-text: #f3f4f6;\\n  --color-html-link: #60a5fa;\\n  --color-submit-btn-bg: #fb923c;\\n  --color-submit-btn-text: #111827;\\n  --font-size-header: 22px;\\n  --font-size-label: 12px;\\n  --font-size-input: 14px;\\n  --font-size-paragraph: 14px;\\n  --border-radius-card: 12px;\\n  --border-radius-input: 8px;\\n  --submit-btn-height: 44px;\\n}\\nbody { font-optical-sizing: auto; }\\n.form-header h1 { font-weight: 600; }\\n.form-label { font-weight: 500; }\\nlabel.form-required::after { content: ''; }\\n#submit-hint { display: none; }\\nform textarea { font-family: var(--font-family); line-height: 1.6; min-height: 320px; }\\na.next { display: inline-block; margin-top: 8px; padding: 12px 28px; border-radius: 8px; background: #fb923c; color: #111827; font-weight: 600; text-decoration: none; }\\n.card:has(.multiselect) .form-header { display: none; }\\n.form-group.html > p { margin: 0 0 6px; font-size: 12px; color: #9ca3af; }\\n.form-group.html > p b { color: #d1d5db; font-weight: 500; }\\n.form-group.html > p em { margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, #f97316 18%, #111827); color: #fb923c; font-style: normal; font-weight: 600; }\\n.form-group.html h3 { margin: 4px 0 8px; font-size: 22px; font-weight: 600; line-height: 1.25; color: #f3f4f6; }\\n.form-group.html div p, .form-group.html li p { margin: 0 0 8px; font-size: 14px; line-height: 1.55; color: #f3f4f6; }\\n.form-group.html h4 { margin: 20px 0 8px; font-size: 12px; font-weight: 500; color: #9ca3af; }\\n.form-group.html > ul { max-height: 460px; overflow-y: auto; padding: 0; border: 0; }\\n.form-group.html ul { list-style: none; margin: 6px 0 0; padding-left: 14px; border-left: 2px solid #2c3644; }\\n.form-group.html li > b { font-size: 12px; font-weight: 500; color: #d1d5db; }\\n.form-group.html li > i { margin-left: 4px; padding: 0 6px; border-radius: 999px; background: color-mix(in srgb, #f97316 18%, #111827); color: #fb923c; font-style: normal; font-size: 10px; font-weight: 600; }\\n.form-group.html li > span { margin-left: 4px; font-size: 10px; color: #9ca3af; }\\n.multiselect[data-radio-select] { display: flex; gap: 8px; }\\n.multiselect[data-radio-select] .multiselect-option { flex: 1; position: relative; margin: 0; }\\n.multiselect[data-radio-select] .multiselect-checkbox { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }\\n.multiselect[data-radio-select] label { flex: 1; padding: 11px 0; border: 1px solid #2c3644; border-radius: 8px; text-align: center; font-weight: 500; color: #d1d5db; cursor: pointer; }\\n.multiselect-option:nth-child(1):has(:checked) label { background: color-mix(in srgb, #22c55e 18%, #111827); border-color: #22c55e; color: #86efac; }\\n.multiselect-option:nth-child(2):has(:checked) label { background: color-mix(in srgb, #ef4444 18%, #111827); border-color: #ef4444; color: #fca5a5; }\\n.multiselect-option:nth-child(3):has(:checked) label { background: #2c3644; border-color: #9ca3af; color: #f3f4f6; }\\n</style>\" + '<div class=\"container\"><section><div class=\"card\"><div class=\"form-header\"><h1>' + ({ replied: 'Posted on Reddit', rejected: 'Rejected', failed: 'Not posted', pending: 'Skipped' }[$json.status] ?? 'Nothing to review') + '</h1>' + ($json.comment_url ? '<p><a href=\"' + $json.comment_url + '\" target=\"_blank\">See the comment on Reddit ↗</a></p>' : '') + ($json.status && $json.error ? '<p>' + $json.error + '</p>' : '') + '</div><a class=\"next\" href=\"/form/reddit-review\">' + ($json.status ? 'Next draft' : 'Check again') + '</a></div></section></div>' }}"
-			}
-		},
-		{
-			"id": "read-me",
-			"name": "Read me",
-			"type": "n8n-nodes-base.stickyNote",
-			"typeVersion": 1,
-			"position": [
-				0,
-				-260
-			],
-			"parameters": {
-				"width": 760,
-				"height": 480,
-				"content": "## Reddit engage, with Reduck\n\nEvery day, this workflow reads new threads in your subreddits, keeps the ones where somebody has the problem you solve, and drafts ONE reply per person. Every thread it judged becomes a row: `skipped`, or `pending` when a reply waits for you. You decide on each draft on a review page; an approved reply is posted at once, from your own browser.\n\n**Before you run it**\n1. Fill in **Config**: what you sell, who you serve, how you write, and your subreddits.\n2. Pick your **Reduck** credential in the three Reduck nodes, and a **Google Gemini** credential (an API key from Google AI Studio) in the two judgment nodes, Pre-screen and Decide and draft.\n3. Install the Reduck extension and pair it: every Reddit script runs on your own browser.\n4. Activate the workflow: the daily scan and the review page only run while it is active. The first run creates the Data Table `reddit_engage`.\n\n**Decide**: open `<your n8n>/form/reddit-review` (only users signed in to this n8n can). It shows the oldest pending draft: edit the reply if you want, then Approve (posted on Reddit at once), Reject, or Skip. The Data Table keeps every thread judged and every decision."
-			}
+			},
+			"credentials": {}
 		}
 	],
 	"connections": {
-		"Every day at 09:00": {
+		"Every morning": {
 			"main": [
 				[
 					{
-						"node": "Table",
+						"node": "Answers",
 						"type": "main",
 						"index": 0
 					}
 				]
 			]
 		},
-		"Table": {
+		"Answers": {
 			"main": [
 				[
 					{
-						"node": "Config",
+						"node": "Subreddits",
 						"type": "main",
 						"index": 0
 					}
 				]
 			]
 		},
-		"Config": {
+		"Subreddits": {
 			"main": [
 				[
 					{
-						"node": "Prompts",
+						"node": "New threads",
 						"type": "main",
 						"index": 0
 					}
 				]
 			]
 		},
-		"Prompts": {
-			"main": [
-				[
-					{
-						"node": "One item per community",
-						"type": "main",
-						"index": 0
-					}
-				]
-			]
-		},
-		"One item per community": {
-			"main": [
-				[
-					{
-						"node": "Scan community",
-						"type": "main",
-						"index": 0
-					}
-				]
-			]
-		},
-		"Scan community": {
+		"New threads": {
 			"main": [
 				[
 					{
@@ -1062,171 +611,143 @@
 			"main": [
 				[
 					{
-						"node": "New threads only",
+						"node": "Not seen before",
 						"type": "main",
 						"index": 0
 					}
 				]
 			]
 		},
-		"New threads only": {
+		"Not seen before": {
 			"main": [
 				[
 					{
-						"node": "Pre-screen",
+						"node": "Render",
 						"type": "main",
 						"index": 0
 					}
 				]
 			]
 		},
-		"Pre-screen": {
+		"Render": {
 			"main": [
 				[
 					{
-						"node": "People already drafted",
+						"node": "Qualify",
 						"type": "main",
 						"index": 0
 					}
 				]
 			]
 		},
-		"People already drafted": {
+		"Qualify": {
 			"main": [
 				[
 					{
-						"node": "One thread per person",
+						"node": "Yes or Maybe?",
 						"type": "main",
 						"index": 0
 					}
 				]
 			]
 		},
-		"One thread per person": {
+		"Yes or Maybe?": {
 			"main": [
 				[
 					{
-						"node": "Read it?",
+						"node": "Thread read?",
 						"type": "main",
 						"index": 0
 					}
-				]
+				],
+				[]
 			]
 		},
-		"Read it?": {
+		"Thread read?": {
 			"main": [
 				[
 					{
-						"node": "Read thread",
+						"node": "One per person",
 						"type": "main",
 						"index": 0
 					}
 				],
 				[
 					{
-						"node": "Record",
+						"node": "Thread page",
 						"type": "main",
 						"index": 0
 					}
 				]
 			]
 		},
-		"Read thread": {
+		"Thread page": {
 			"main": [
 				[
 					{
-						"node": "Thread with comments",
+						"node": "Render",
 						"type": "main",
 						"index": 0
 					}
 				]
 			]
 		},
-		"Thread with comments": {
+		"One per person": {
 			"main": [
 				[
 					{
-						"node": "Decide and draft",
+						"node": "Not drafted before",
 						"type": "main",
 						"index": 0
 					}
 				]
 			]
 		},
-		"Decide and draft": {
+		"Not drafted before": {
 			"main": [
 				[
 					{
-						"node": "Verdict",
+						"node": "Subreddit rules",
 						"type": "main",
 						"index": 0
 					}
 				]
 			]
 		},
-		"Verdict": {
+		"Subreddit rules": {
 			"main": [
 				[
 					{
-						"node": "Record",
+						"node": "Reply evidence",
 						"type": "main",
 						"index": 0
 					}
 				]
 			]
 		},
-		"Review drafts": {
+		"Reply evidence": {
 			"main": [
 				[
 					{
-						"node": "Next draft",
+						"node": "Draft reply",
 						"type": "main",
 						"index": 0
 					}
 				]
 			]
 		},
-		"Next draft": {
+		"On ruling": {
 			"main": [
 				[
 					{
-						"node": "Any draft?",
+						"node": "Approved?",
 						"type": "main",
 						"index": 0
 					}
 				]
 			]
 		},
-		"Any draft?": {
-			"main": [
-				[
-					{
-						"node": "Decide",
-						"type": "main",
-						"index": 0
-					}
-				],
-				[
-					{
-						"node": "Done",
-						"type": "main",
-						"index": 0
-					}
-				]
-			]
-		},
-		"Decide": {
-			"main": [
-				[
-					{
-						"node": "Approve?",
-						"type": "main",
-						"index": 0
-					}
-				]
-			]
-		},
-		"Approve?": {
+		"Approved?": {
 			"main": [
 				[
 					{
@@ -1235,35 +756,7 @@
 						"index": 0
 					}
 				],
-				[
-					{
-						"node": "Record decision",
-						"type": "main",
-						"index": 0
-					}
-				]
-			]
-		},
-		"Post comment": {
-			"main": [
-				[
-					{
-						"node": "Record decision",
-						"type": "main",
-						"index": 0
-					}
-				]
-			]
-		},
-		"Record decision": {
-			"main": [
-				[
-					{
-						"node": "Done",
-						"type": "main",
-						"index": 0
-					}
-				]
+				[]
 			]
 		}
 	},
