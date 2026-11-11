@@ -77,6 +77,12 @@
 							"name": "n8n_categories",
 							"value": "5, 12, 36",
 							"type": "string"
+						},
+						{
+							"id": "days",
+							"name": "days",
+							"value": 1,
+							"type": "number"
 						}
 					]
 				},
@@ -93,7 +99,7 @@
 			"type": "n8n-nodes-base.code",
 			"typeVersion": 2,
 			"parameters": {
-				"jsCode": "// One item per watched place: the subreddits and the n8n forum categories of Answers.\nconst a = $('Answers').first().json;\nconst list = (s) => String(s ?? '').split(',').map((p) => p.trim()).filter(Boolean);\nreturn [...list(a.subreddits).map((place) => ({ json: { source: 'reddit', place } })),\n        ...list(a.n8n_categories).map((place) => ({ json: { source: 'n8n', place } }))];"
+				"jsCode": "// One item per watched place: each subreddit, and each forum category once per page it needs. A page\n// sorted by creation holds 3 days or more of the busiest category, so one page per 3 days reaches back.\nconst a = $('Answers').first().json;\nconst list = (s) => String(s ?? '').split(',').map((p) => p.trim()).filter(Boolean);\nconst pages = Array.from({ length: Math.ceil(a.days / 3) }, (_, k) => k + 1);\nreturn [...list(a.subreddits).map((place) => ({ json: { source: 'reddit', place } })),\n        ...list(a.n8n_categories).flatMap((place) => pages.map((page) => ({ json: { source: 'n8n', place, page } })))];"
 			}
 		},
 		{
@@ -150,7 +156,7 @@
 					"value": {
 						"subreddit": "={{ $json.place }}",
 						"sort": "new",
-						"since": "24h"
+						"since": "={{ $('Answers').first().json.days }}d"
 					},
 					"matchingColumns": [],
 					"schema": [
@@ -208,7 +214,8 @@
 					"mappingMode": "defineBelow",
 					"value": {
 						"category": "={{ $json.place }}",
-						"order": "created"
+						"order": "created",
+						"page": "={{ $json.page }}"
 					},
 					"matchingColumns": [],
 					"schema": [
@@ -228,6 +235,15 @@
 							"defaultMatch": false,
 							"display": true,
 							"type": "string",
+							"canBeUsedToMatch": false
+						},
+						{
+							"id": "page",
+							"displayName": "page",
+							"required": false,
+							"defaultMatch": false,
+							"display": true,
+							"type": "number",
 							"canBeUsedToMatch": false
 						}
 					]
@@ -471,7 +487,7 @@
 				100
 			],
 			"parameters": {
-				"jsCode": "// The forum topics created in the last 24 h. One page sorted by creation holds days of each\n// category: fail the day it does not hold the whole window, rather than drop topics.\nconst since = new Date(Date.now() - 24 * 3600e3).toISOString();\nreturn $input.all().flatMap(({ json: { result: r } }) => {\n  if (r.nextPage && String(r.topics.at(-1)?.createdAt) >= since) throw new Error(`forum category ${r.topics[0].categoryId}: more than one page of topics in 24 h`);\n  return r.topics.filter((t) => t.createdAt >= since).map((t) => ({ json: t }));\n});"
+				"jsCode": "// The forum topics created in the window, each once. Fail when the last page read still holds only\n// topics from the window, rather than drop the ones past it.\nconst since = new Date(Date.now() - $('Answers').first().json.days * 864e5).toISOString();\nconst pages = $input.all().map(({ json }) => json.result);\nconst last = Math.max(...pages.map((r) => r.page));\nconst seen = new Set();\nreturn pages.flatMap((r) => {\n  if (r.page === last && r.nextPage && String(r.topics.at(-1)?.createdAt) >= since) throw new Error(`forum category ${r.topics[0].categoryId}: more topics in the window than ${last} page(s) hold`);\n  return r.topics.filter((t) => t.createdAt >= since && !seen.has(t.id) && seen.add(t.id)).map((t) => ({ json: t }));\n});"
 			}
 		},
 		{
