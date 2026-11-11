@@ -24,6 +24,8 @@ const MAX_WAIT_MINUTES = 32;
 // The managed browser's budget, and 10 runs of 3 minutes on a 2-slot device still start inside the
 // queue's 16-minute wait.
 const BATCH = 10;
+// Decisions in flight at once: the width flock's own eval runs at, under the model's rate limit.
+const REVIEWS_AT_ONCE = 8;
 
 // One input item's run: its place in the output, its script, and where it runs.
 interface ItemRun {
@@ -251,13 +253,18 @@ export class Reduck implements INodeType {
 
 		if (this.getNodeParameter('resource', 0, 'script') === 'review') {
 			const app = prepare(this);
-			for (let i = 0; i < items.length; i++) {
-				try {
-					out[i] = { json: await review(this, await app, i), pairedItem: { item: i } };
-				} catch (error) {
-					fail(error, i);
-				}
-			}
+			let next = 0;
+			await Promise.all(
+				Array.from({ length: Math.min(REVIEWS_AT_ONCE, items.length) }, async () => {
+					for (let i = next++; i < items.length; i = next++) {
+						try {
+							out[i] = { json: await review(this, await app, i), pairedItem: { item: i } };
+						} catch (error) {
+							fail(error, i);
+						}
+					}
+				}),
+			);
 			return [out];
 		}
 
