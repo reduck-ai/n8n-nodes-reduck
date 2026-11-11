@@ -117,6 +117,14 @@ export const REVIEW_PROPERTIES: INodeProperties[] = [
 					'Whether the workflow accepts the answer itself, so no person reviews it. For a measurement, such as a score or a tier.',
 			},
 			{
+				displayName: 'Reference',
+				name: 'ref',
+				type: 'string',
+				default: '',
+				placeholder: 'e.g. https://www.reddit.com/r/n8n/comments/1xsi396/',
+				description: 'What the decision is about, such as its URL. The review page links to it.',
+			},
+			{
 				displayName: 'Tries',
 				name: 'tries',
 				type: 'number',
@@ -223,6 +231,7 @@ const evidence = ({ title, ...fields }: IDataObject): string =>
 /** A decision as this node gives it, waiting or ruled, with the page that lists its prompt's. */
 export const toItem = async (ctx: Ctx, app: App, decision: Decision): Promise<IDataObject> => ({
 	id: Number(decision.id),
+	ref: decision.ref,
 	verdict: decision.verdict,
 	output: decision.output,
 	feedback: decision.feedback,
@@ -236,9 +245,10 @@ export const toItem = async (ctx: Ctx, app: App, decision: Decision): Promise<ID
 
 export async function review(ctx: IExecuteFunctions, app: App, i: number): Promise<IDataObject> {
 	const input = json(ctx, 'input', i);
-	const { tries = 1, accept = false } = ctx.getNodeParameter('options', i, {}) as {
+	const { tries = 1, accept = false, ref = '' } = ctx.getNodeParameter('options', i, {}) as {
 		tries?: number;
 		accept?: boolean;
+		ref?: string;
 	};
 	const decision = await reduckRequest<Decision>(ctx, 'POST', await door(ctx, app), {
 		body: {
@@ -246,6 +256,7 @@ export async function review(ctx: IExecuteFunctions, app: App, i: number): Promi
 			input,
 			evidence: (ctx.getNodeParameter('evidence', i, '') as string) || evidence(input),
 			tries,
+			...(ref ? { ref } : {}),
 		},
 	});
 	// The same ruling a person makes on the review page, with the model's own answer.
