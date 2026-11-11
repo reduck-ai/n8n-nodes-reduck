@@ -413,7 +413,8 @@
 				"deviceId": "extension",
 				"simplify": true
 			},
-			"credentials": {}
+			"credentials": {},
+			"onError": "continueRegularOutput"
 		},
 		{
 			"id": "reply",
