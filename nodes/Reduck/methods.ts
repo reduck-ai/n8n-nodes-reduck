@@ -32,6 +32,7 @@ export interface Script {
 	current_version: {
 		input_schema: { properties?: Record<string, JsonSchemaProperty>; required?: string[] };
 		logged_in?: boolean;
+		side_effects?: 'none' | 'undetermined' | 'write';
 	} | null;
 }
 
