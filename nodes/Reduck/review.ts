@@ -24,7 +24,7 @@ export const PROMPT: INodeProperties = {
 	default: '',
 	required: true,
 	placeholder: 'e.g. Reddit replies',
-	description: 'The name of the prompt in your n8n_app. Request Review creates it when it does not exist.',
+	description: 'The name of the prompt in your n8n_app. Set Prompt creates it when it does not exist.',
 };
 
 const ANSWER = JSON.stringify(
@@ -34,6 +34,10 @@ const ANSWER = JSON.stringify(
 );
 
 const show = { show: { resource: ['review'] } };
+// Set Prompt writes a prompt, Request Review only answers under its live version: a version
+// promoted elsewhere (the review page, the CLI) stays live until Set Prompt runs again.
+const set = { show: { resource: ['review'], operation: ['set'] } };
+const request = { show: { resource: ['review'], operation: ['request'] } };
 
 export const REVIEW_PROPERTIES: INodeProperties[] = [
 	{
@@ -47,7 +51,13 @@ export const REVIEW_PROPERTIES: INodeProperties[] = [
 				name: 'Request Review',
 				value: 'request',
 				action: 'Request a review',
-				description: 'Ask the model for an answer, for a person to approve or reject on Reduck',
+				description: 'Ask the model for an answer under the live prompt, for a person to approve or reject on Reduck',
+			},
+			{
+				name: 'Set Prompt',
+				value: 'set',
+				action: 'Set a prompt',
+				description: 'Make these instructions the live version of the prompt',
 			},
 		],
 		default: 'request',
@@ -62,7 +72,7 @@ export const REVIEW_PROPERTIES: INodeProperties[] = [
 		required: true,
 		description:
 			'What the model must do with each item. A change here becomes the next version of the prompt.',
-		displayOptions: show,
+		displayOptions: set,
 	},
 	{
 		displayName: 'Answer Schema',
@@ -71,7 +81,7 @@ export const REVIEW_PROPERTIES: INodeProperties[] = [
 		default: ANSWER,
 		description:
 			'The JSON Schema of the answer. The reviewer edits the answer in a form made from it.',
-		displayOptions: show,
+		displayOptions: set,
 	},
 	{
 		displayName: 'Review CSS',
@@ -81,7 +91,7 @@ export const REVIEW_PROPERTIES: INodeProperties[] = [
 		default: '',
 		description:
 			'The look of the evidence on the review page. Scope it under .rv-evidence. A change here becomes the next version of the prompt.',
-		displayOptions: show,
+		displayOptions: set,
 	},
 	{
 		displayName: 'Input',
@@ -89,7 +99,7 @@ export const REVIEW_PROPERTIES: INodeProperties[] = [
 		type: 'json',
 		default: '={{ $json }}',
 		description: 'The data the decision holds. The trigger gives it back.',
-		displayOptions: show,
+		displayOptions: request,
 	},
 	{
 		displayName: 'Evidence',
@@ -99,7 +109,7 @@ export const REVIEW_PROPERTIES: INodeProperties[] = [
 		default: '',
 		description:
 			'What the model reads and the reviewer sees: Markdown, with &lt;div&gt;, &lt;span&gt; and other simple tags that take a class. Empty: made from Input, its "title" as the headline.',
-		displayOptions: show,
+		displayOptions: request,
 	},
 	{
 		displayName: 'Options',
@@ -134,7 +144,7 @@ export const REVIEW_PROPERTIES: INodeProperties[] = [
 					'For an answer that is free text: how many drafts to make while a check of the draft against the instructions fails',
 			},
 		],
-		displayOptions: show,
+		displayOptions: request,
 	},
 ];
 
@@ -184,25 +194,30 @@ const json = (ctx: IExecuteFunctions, name: string, i: number): IDataObject => {
 	}
 };
 
-/**
- * The app, and its prompt as the first item states it, made or changed only when they differ: every
- * item of an execution is judged under the same version.
- */
-export async function prepare(ctx: IExecuteFunctions): Promise<App> {
+interface Version {
+	version: string;
+	live: boolean;
+	template: string;
+	output: unknown;
+	css: string | null;
+}
+
+/** Set Prompt: the item's prompt made or changed only when it differs from the live version. */
+export async function setPrompt(ctx: IExecuteFunctions, i: number): Promise<IDataObject> {
 	const app =
 		(await findApp(ctx)) ??
 		(await reduckRequest<App>(ctx, 'POST', `/api/apps/${encodeURIComponent(await ownHandle(ctx))}`, {
 			body: { image: IMAGE },
 		}));
-	const name = ctx.getNodeParameter('prompt', 0) as string;
-	const template = ctx.getNodeParameter('instructions', 0) as string;
-	const output = json(ctx, 'answer', 0);
-	const css = ctx.getNodeParameter('css', 0, '') as string;
+	const name = ctx.getNodeParameter('prompt', i) as string;
+	const template = ctx.getNodeParameter('instructions', i) as string;
+	const output = json(ctx, 'answer', i);
+	const css = ctx.getNodeParameter('css', i, '') as string;
 	const prompts = `${await door(ctx, app)}/prompts`;
-	const { prompts: versions } = await reduckRequest<{
-		prompts: Array<{ live: boolean; template: string; output: unknown; css: string | null }>;
-	}>(ctx, 'GET', prompts, { qs: { name } });
-	const live = versions.find((version) => version.live);
+	const { prompts: versions } = await reduckRequest<{ prompts: Version[] }>(ctx, 'GET', prompts, {
+		qs: { name },
+	});
+	let live = versions.find((version) => version.live);
 	if (
 		live?.template !== template ||
 		canonical(live.output) !== canonical(output) ||
@@ -210,8 +225,18 @@ export async function prepare(ctx: IExecuteFunctions): Promise<App> {
 	)
 		// Any input is accepted: what each item holds is the workflow's. An empty css clears it, where
 		// null would keep the live version's.
-		await reduckRequest(ctx, 'POST', prompts, {
+		live = await reduckRequest<Version>(ctx, 'POST', prompts, {
 			body: { name, template, input: { type: 'object' }, output, css, promote: true },
+		});
+	return { prompt: name, version: Number(live.version) };
+}
+
+/** Request Review's app: Set Prompt makes it, so none means no prompt was ever set. */
+export async function requestApp(ctx: IExecuteFunctions): Promise<App> {
+	const app = await findApp(ctx);
+	if (!app)
+		throw new NodeOperationError(ctx.getNode(), 'This Reduck account has no n8n_app', {
+			description: 'Run Set Prompt first.',
 		});
 	return app;
 }
@@ -252,7 +277,7 @@ export async function review(ctx: IExecuteFunctions, app: App, i: number): Promi
 	};
 	const decision = await reduckRequest<Decision>(ctx, 'POST', await door(ctx, app), {
 		body: {
-			prompt: ctx.getNodeParameter('prompt', 0),
+			prompt: ctx.getNodeParameter('prompt', i),
 			input,
 			evidence: (ctx.getNodeParameter('evidence', i, '') as string) || evidence(input),
 			tries,

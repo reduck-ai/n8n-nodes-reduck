@@ -12,7 +12,7 @@ import {
 } from 'n8n-workflow';
 
 import { FILE_FIELD, PAIRED_BROWSER, getDevices, getHandles, getScriptArgs, searchScripts, type Script } from './methods';
-import { REVIEW_PROPERTIES, prepare, review } from './review';
+import { REVIEW_PROPERTIES, requestApp, review, setPrompt } from './review';
 import { parseScriptAddress, reduckRequest, reduckUrl, scriptPath, type Run } from './transport';
 
 // Reduck allows an account 60 API requests a minute, and each run on a paired browser spends one
@@ -267,7 +267,18 @@ export class Reduck implements INodeType {
 		};
 
 		if (this.getNodeParameter('resource', 0, 'script') === 'review') {
-			const app = prepare(this);
+			// One at a time: the first prompt set may make the account's n8n_app.
+			if (this.getNodeParameter('operation', 0) === 'set') {
+				for (let i = 0; i < items.length; i++) {
+					try {
+						out[i] = { json: await setPrompt(this, i), pairedItem: { item: i } };
+					} catch (error) {
+						fail(error, i);
+					}
+				}
+				return [out];
+			}
+			const app = requestApp(this);
 			let next = 0;
 			await Promise.all(
 				Array.from({ length: Math.min(REVIEWS_AT_ONCE, items.length) }, async () => {
