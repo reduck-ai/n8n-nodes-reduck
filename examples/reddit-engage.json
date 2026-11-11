@@ -13,7 +13,7 @@
 			"parameters": {
 				"width": 480,
 				"height": 560,
-				"content": "## Reddit engage\n\nEvery morning, read the new threads of your subreddits, judge each one against who you sell to (Yes, Maybe or No), and draft ONE reply per person, on their best thread. You approve, edit or reject each draft on Reduck; an approved reply is posted from your Chrome.\n\n**1. Select your Reduck credential** in every Reduck node.\n\n**2. Fill in Answers**: what you sell (`company`), what breaks for whom (`icp`), how you write a reply (`style`), your subreddits, and your Reddit username (`account`), so your own threads are skipped.\n\n**3. Publish.** Each verdict is kept with its citations under **Past** on your n8n_app page; each draft waits under **To review**. **On ruling** posts the approved ones.\n\nThe listings and the rules are read on a managed browser from the US (Reddit walls its datacenter). A thread's page and the comment are on your paired Chrome, signed in to Reddit: keep it open."
+				"content": "## Reddit engage\n\nEvery morning, read the new threads of your subreddits, judge each one against who you sell to (Yes, Maybe or No), and draft ONE reply per person, on their best thread. You approve, edit or reject each draft on Reduck; an approved reply is posted from your Chrome.\n\n**1. Select your Reduck credential** in every Reduck node.\n\n**2. Fill in Answers**: what you sell (`company`), what breaks for whom (`icp`), how you write a reply (`style`), your subreddits, and your Reddit username (`account`), so your own threads are skipped.\n\n**3. Publish.** Each verdict is kept with its citations under **Past** on your n8n_app page; each draft waits under **To review**. **On ruling** posts the approved ones.\n\nThe listings are read on a managed browser from the US (Reddit walls its datacenter). A thread's page, its subreddit's rules and the comment are on your paired Chrome, signed in to Reddit: keep it open."
 			}
 		},
 		{
@@ -409,10 +409,8 @@
 						}
 					]
 				},
-				"browser": "managed",
-				"options": {
-					"country": "US"
-				},
+				"browser": "extension",
+				"deviceId": "extension",
 				"simplify": true
 			},
 			"credentials": {},
