@@ -1,6 +1,6 @@
 {
 	"name": "@reduck-ai/n8n-nodes-reduck",
-	"version": "0.2.36",
+	"version": "0.2.38",
 	"description": "Run your Reduck browser scripts in n8n workflows and AI agents.",
 	"license": "MIT",
 	"homepage": "https://github.com/reduck-ai/n8n-nodes-reduck#readme",
@@ -55,5 +55,10 @@
 	},
 	"peerDependencies": {
 		"n8n-workflow": "*"
+	},
+	"peerDependenciesMeta": {
+		"n8n-workflow": {
+			"optional": true
+		}
 	}
 }

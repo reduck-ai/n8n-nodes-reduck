@@ -26,12 +26,16 @@ const MAX_WAIT_MINUTES = 32;
 const BATCH = 10;
 // Decisions in flight at once: the width flock's own eval runs at, under the model's rate limit.
 const REVIEWS_AT_ONCE = 8;
+// A site refuses about 1 managed run in 3 at random (Reddit's captcha): 3 more tries miss 1 in 81.
+const RETRIES = 3;
 
-// One input item's run: its place in the output, its script, and where it runs.
+// One input item's run: its place in the output, its script, where it runs, and whether its script
+// only reads, so a failed run can run again.
 interface ItemRun {
 	i: number;
 	script: IDataObject;
 	target: IDataObject;
+	readOnly: boolean;
 }
 
 export class Reduck implements INodeType {
@@ -184,13 +188,14 @@ export class Reduck implements INodeType {
 				type: 'collection',
 				placeholder: 'Add Option',
 				default: {},
-				// The API refuses them on a paired browser. The regions are the API's (MANAGED_REGIONS in
-				// the MCP's browser.ts): it refuses any other and names the ones it has.
+				// The API refuses Region and Country on a paired browser. The regions are the API's
+				// (MANAGED_REGIONS in the MCP's browser.ts): it refuses any other and names the ones it has.
 				options: [
 					{
 						displayName: 'Region',
 						name: 'region',
 						type: 'options',
+						displayOptions: { show: { '/browser': ['managed'] } },
 						options: [
 							{ name: 'Asia Pacific (Singapore)', value: 'ap-southeast-1' },
 							{ name: 'Europe (Frankfurt)', value: 'eu-central-1' },
@@ -205,13 +210,23 @@ export class Reduck implements INodeType {
 						displayName: 'Country',
 						name: 'country',
 						type: 'string',
+						displayOptions: { show: { '/browser': ['managed'] } },
 						default: '',
 						placeholder: 'e.g. FR',
 						description:
 							'The ISO 3166 alpha-2 code of the country the managed browser connects to the site from, through a residential proxy. Use it for a site that changes by country. Leave it empty to connect from the datacenter.',
 					},
+					{
+						displayName: 'Retries',
+						name: 'retries',
+						type: 'number',
+						typeOptions: { minValue: 0, maxValue: 5 },
+						default: RETRIES,
+						description:
+							'How many more times a failed run starts again, on a new browser. Only for a script that only reads: a script that writes never runs again.',
+					},
 				],
-				displayOptions: { show: { resource: ['script'], browser: ['managed'] } },
+				displayOptions: { show: { resource: ['script'] } },
 			},
 			{
 				displayName: 'Simplify',
@@ -270,10 +285,10 @@ export class Reduck implements INodeType {
 
 		// One request has one browser target, and stays under the API's 4.5 MB: a file goes alone.
 		const groups = new Map<string, ItemRun[]>();
-		const loggedIn = new Map<string, Promise<boolean>>();
+		const versions = new Map<string, Promise<Script['current_version']>>();
 		for (let i = 0; i < items.length; i++) {
 			try {
-				const item = await itemRunOf(this, i, loggedIn);
+				const item = await itemRunOf(this, i, versions);
 				const key = item.script.files ? `item ${i}` : JSON.stringify(item.target);
 				groups.set(key, [...(groups.get(key) ?? []), item]);
 			} catch (error) {
@@ -287,6 +302,15 @@ export class Reduck implements INodeType {
 				let runs: Run[] = [];
 				try {
 					runs = await runBatch(this, slice);
+					// A failed run of a script that only reads starts again: the site often refused that
+					// browser (a captcha, a block), and a new one comes from another address.
+					const { retries = RETRIES } = this.getNodeParameter('options', slice[0].i, {}) as { retries?: number };
+					for (let left = retries; left > 0; left--) {
+						const again = slice.filter((item, j) => item.readOnly && 'error' in (runs[j].result ?? {}));
+						if (!again.length) break;
+						const retried = await runBatch(this, again);
+						again.forEach((item, k) => (runs[slice.indexOf(item)] = retried[k]));
+					}
 				} catch (error) {
 					slice.forEach(({ i }) => fail(error, i));
 				}
@@ -361,11 +385,11 @@ async function runBatch(ctx: IExecuteFunctions, items: ItemRun[]): Promise<Run[]
 	return runs;
 }
 
-// `loggedIn` holds whether each script needs a sign-in, read once per execution.
+// `versions` holds each script's current version, read once per execution.
 async function itemRunOf(
 	ctx: IExecuteFunctions,
 	i: number,
-	loggedIn: Map<string, Promise<boolean>>,
+	versions: Map<string, Promise<Script['current_version']>>,
 ): Promise<ItemRun> {
 	const address = ctx.getNodeParameter('script', i, '', { extractValue: true }) as string;
 	const script = await parseScriptAddress(ctx, address, ctx.getNodeParameter('handle', i, '') as string);
@@ -391,20 +415,16 @@ async function itemRunOf(
 		const bytes = await ctx.helpers.getBinaryDataBuffer(i, property);
 		files[key.slice(FILE_FIELD.length)] = { b64: bytes.toString('base64'), mime: mimeType };
 	}
+	if (!versions.has(address))
+		versions.set(address, reduckRequest<Script>(ctx, 'GET', scriptPath(script)).then((s) => s.current_version));
+	const version = await versions.get(address);
 	const managed = ctx.getNodeParameter('browser', i) === 'managed';
 	// A managed browser has no sign-in yet, so a script that needs one fails there.
-	if (managed) {
-		if (!loggedIn.has(address))
-			loggedIn.set(
-				address,
-				reduckRequest<Script>(ctx, 'GET', scriptPath(script)).then((s) => !!s.current_version?.logged_in),
-			);
-		if (await loggedIn.get(address))
-			throw new NodeOperationError(ctx.getNode(), 'Managed runs are not supported yet for scripts that require login', {
-				itemIndex: i,
-				description: 'Run it on a paired browser instead.',
-			});
-	}
+	if (managed && version?.logged_in)
+		throw new NodeOperationError(ctx.getNode(), 'Managed runs are not supported yet for scripts that require login', {
+			itemIndex: i,
+			description: 'Run it on a paired browser instead.',
+		});
 	const { region, country = '' } = ctx.getNodeParameter('options', i, {}) as { region?: string; country?: string };
 	const deviceId = managed ? '' : (ctx.getNodeParameter('deviceId', i) as string);
 
@@ -417,6 +437,8 @@ async function itemRunOf(
 			: deviceId === PAIRED_BROWSER
 				? { browser: PAIRED_BROWSER }
 				: { device_id: deviceId },
+		// Declared by the script's author: `undetermined` may write, so it never runs twice.
+		readOnly: version?.side_effects === 'none',
 	};
 }
 

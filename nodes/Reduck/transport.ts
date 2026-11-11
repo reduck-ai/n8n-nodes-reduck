@@ -24,7 +24,8 @@ export async function flockUrl(ctx: Ctx): Promise<string> {
 	return (url || 'https://flock.reduck.ai').replace(/\/+$/, '');
 }
 
-// The one place this package calls Reduck. The credential adds the API key or the OAuth token.
+// The one place this package calls Reduck. The credential adds the API key or the OAuth token; the
+// User-Agent is how Reduck tells a run of this node from another REST call.
 export async function reduckRequest<T>(
 	ctx: Ctx,
 	method: IHttpRequestMethods,
@@ -37,6 +38,7 @@ export async function reduckRequest<T>(
 		return (await ctx.helpers.httpRequestWithAuthentication.call(ctx, 'reduckApi', {
 			method,
 			url,
+			headers: { 'User-Agent': 'n8n-nodes-reduck' },
 			json: true,
 			...options,
 		})) as T;
