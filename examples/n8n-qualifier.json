@@ -42,7 +42,7 @@
 			"type": "n8n-nodes-base.set",
 			"typeVersion": 3.4,
 			"position": [
-				220,
+				165,
 				0
 			],
 			"parameters": {
@@ -87,7 +87,7 @@
 			"id": "places",
 			"name": "Places",
 			"position": [
-				440,
+				495,
 				0
 			],
 			"type": "n8n-nodes-base.code",
@@ -360,7 +360,7 @@
 			"typeVersion": 2,
 			"parameters": {
 				"mode": "runOnceForEachItem",
-				"jsCode": "// The page and its replies, as the model and the reviewer read them: n8n_qualifier's evidenceOf.\nconst r = $json.result;\nconst reddit = $json.script.includes('reddit.com');\nconst post = reddit\n  ? { url: r.permalink, source: 'reddit', place: r.subreddit, title: r.title, author: r.author ?? null, created: r.created ?? null, post_type: r.post_type ?? null, content_href: r.content_href ?? null }\n  : { url: r.url, source: 'n8n', place: String(r.categoryId), title: r.title, author: r.author ?? null, created: r.createdAt ?? null, post_type: null, content_href: null };\nconst [op, ...replies] = (r.posts ?? []).filter((p) => !p.action);\npost.op_text = String((reddit ? r.op_text : op?.text) ?? '').trim() || null;\npost.op_text_known = 1;\nconst read = reddit\n  ? { score: r.score ?? null, num_comments: r.num_comments ?? null }\n  : { score: r.likeCount ?? null, num_comments: r.postsCount == null ? null : r.postsCount - 1 };\nconst comments = reddit\n  ? (r.comments ?? []).map((c) => ({ author: c.author ?? null, body: c.body ?? '', score: c.score ?? null, depth: c.depth ?? 0, created: c.created ?? null }))\n  : replies.map((p) => ({ author: p.username ?? null, body: p.text ?? '', score: p.likeCount ?? null, depth: p.replyToPostNumber ? 1 : 0, created: p.createdAt ?? null }));\n\nconst WHO = { reddit: 'u/', n8n: '@' };\nconst VOTES = { reddit: 'points', n8n: 'likes' };\nconst when = (t) => (t ? String(t).slice(0, 16).replace('T', ' ') + ' UTC' : null);\nconst who = (name) => (WHO[post.source] ?? '') + (name ?? '(deleted)');\nconst place = post.source === 'n8n' ? 'n8n forum › ' + post.place : 'r/' + post.place;\nconst byline = [place, who(post.author), post.created ? 'posted ' + when(post.created) : null,\n  read.score == null ? null : read.score + ' ' + VOTES[post.source],\n  read.num_comments == null ? null : read.num_comments + ' comments',\n  post.post_type && !['text', 'multi_media'].includes(post.post_type) ? post.post_type + ' post' : null].filter(Boolean).join(' · ');\nconst head = ['<div class=\"rd-byline\">' + byline + '</div>', '# ' + String(post.title ?? '').trim()];\nif (post.content_href && post.content_href !== post.url) head.push('<div class=\"rd-link\">links to: ' + post.content_href + '</div>');\nconst lines = comments.map((c) => {\n  const depth = Math.min(Math.max(0, Number(c.depth ?? 0)), 6);\n  const op = post.author && c.author && c.author.toLowerCase() === String(post.author).toLowerCase();\n  const meta = [c.score == null ? null : c.score + ' ' + VOTES[post.source], when(c.created)].filter(Boolean).join(' · ');\n  return '<div class=\"rd-c rd-d' + depth + (op ? ' rd-own' : '') + '\"><div class=\"rd-cwho\">' + who(c.author) + (op ? ' (OP)' : '') + (meta ? ' · ' + meta : '') + '</div>\\n' + String(c.body ?? '').trim() + '\\n</div>';\n});\nconst total = read.num_comments;\nconst count = total != null && total !== comments.length ? comments.length + ' of ' + total + ' shown' : String(comments.length);\nconst evidence = [head.join('\\n'), '## Post', post.op_text || '(the OP wrote no text)',\n  '## Comments (' + count + ')', lines.length ? lines.join('\\n') : '(nobody has replied to this post)'].join('\\n\\n');\nreturn { json: { input: { post, read, comments }, evidence } };"
+				"jsCode": "// The page and its replies, as the model and the reviewer read them: n8n_qualifier's evidenceOf.\nconst r = $json.result;\n// A forum category as the forum shows it: its parent first (Feature Requests › Nodes).\nconst cats = new Map($('Forum categories').first().json.result.categories.map((c) => [c.id, c]));\nconst category = (id) => [cats.get(cats.get(id)?.parentId)?.name, cats.get(id)?.name ?? String(id)].filter(Boolean).join(' › ');\nconst reddit = $json.script.includes('reddit.com');\nconst post = reddit\n  ? { url: r.permalink, source: 'reddit', place: r.subreddit, title: r.title, author: r.author ?? null, created: r.created ?? null, post_type: r.post_type ?? null, content_href: r.content_href ?? null }\n  : { url: r.url, source: 'n8n', place: category(r.categoryId), title: r.title, author: r.author ?? null, created: r.createdAt ?? null, post_type: null, content_href: null };\nconst [op, ...replies] = (r.posts ?? []).filter((p) => !p.action);\npost.op_text = String((reddit ? r.op_text : op?.text) ?? '').trim() || null;\npost.op_text_known = 1;\nconst read = reddit\n  ? { score: r.score ?? null, num_comments: r.num_comments ?? null }\n  : { score: r.likeCount ?? null, num_comments: r.postsCount == null ? null : r.postsCount - 1 };\nconst comments = reddit\n  ? (r.comments ?? []).map((c) => ({ author: c.author ?? null, body: c.body ?? '', score: c.score ?? null, depth: c.depth ?? 0, created: c.created ?? null }))\n  : replies.map((p) => ({ author: p.username ?? null, body: p.text ?? '', score: p.likeCount ?? null, depth: p.replyToPostNumber ? 1 : 0, created: p.createdAt ?? null }));\n\nconst WHO = { reddit: 'u/', n8n: '@' };\nconst VOTES = { reddit: 'points', n8n: 'likes' };\nconst when = (t) => (t ? String(t).slice(0, 16).replace('T', ' ') + ' UTC' : null);\nconst who = (name) => (WHO[post.source] ?? '') + (name ?? '(deleted)');\nconst place = post.source === 'n8n' ? 'n8n forum › ' + post.place : 'r/' + post.place;\nconst byline = [place, who(post.author), post.created ? 'posted ' + when(post.created) : null,\n  read.score == null ? null : read.score + ' ' + VOTES[post.source],\n  read.num_comments == null ? null : read.num_comments + ' comments',\n  post.post_type && !['text', 'multi_media'].includes(post.post_type) ? post.post_type + ' post' : null].filter(Boolean).join(' · ');\nconst head = ['<div class=\"rd-byline\">' + byline + '</div>', '# ' + String(post.title ?? '').trim()];\nif (post.content_href && post.content_href !== post.url) head.push('<div class=\"rd-link\">links to: ' + post.content_href + '</div>');\nconst lines = comments.map((c) => {\n  const depth = Math.min(Math.max(0, Number(c.depth ?? 0)), 6);\n  const op = post.author && c.author && c.author.toLowerCase() === String(post.author).toLowerCase();\n  const meta = [c.score == null ? null : c.score + ' ' + VOTES[post.source], when(c.created)].filter(Boolean).join(' · ');\n  return '<div class=\"rd-c rd-d' + depth + (op ? ' rd-own' : '') + '\"><div class=\"rd-cwho\">' + who(c.author) + (op ? ' (OP)' : '') + (meta ? ' · ' + meta : '') + '</div>\\n' + String(c.body ?? '').trim() + '\\n</div>';\n});\nconst total = read.num_comments;\nconst count = total != null && total !== comments.length ? comments.length + ' of ' + total + ' shown' : String(comments.length);\nconst evidence = [head.join('\\n'), '## Post', post.op_text || '(the OP wrote no text)',\n  '## Comments (' + count + ')', lines.length ? lines.join('\\n') : '(nobody has replied to this post)'].join('\\n\\n');\nreturn { json: { input: { post, read, comments }, evidence } };"
 			}
 		},
 		{
@@ -473,6 +473,32 @@
 			"parameters": {
 				"jsCode": "// The forum topics created in the last 24 h. One page sorted by creation holds days of each\n// category: fail the day it does not hold the whole window, rather than drop topics.\nconst since = new Date(Date.now() - 24 * 3600e3).toISOString();\nreturn $input.all().flatMap(({ json: { result: r } }) => {\n  if (r.nextPage && String(r.topics.at(-1)?.createdAt) >= since) throw new Error(`forum category ${r.topics[0].categoryId}: more than one page of topics in 24 h`);\n  return r.topics.filter((t) => t.createdAt >= since).map((t) => ({ json: t }));\n});"
 			}
+		},
+		{
+			"id": "forum-categories",
+			"name": "Forum categories",
+			"type": "@reduck-ai/n8n-nodes-reduck.reduck",
+			"typeVersion": 1,
+			"position": [
+				330,
+				0
+			],
+			"credentials": {},
+			"parameters": {
+				"script": {
+					"__rl": true,
+					"mode": "address",
+					"value": "reduck/community.n8n.io/list_categories"
+				},
+				"args": {
+					"mappingMode": "defineBelow",
+					"value": {},
+					"matchingColumns": [],
+					"schema": []
+				},
+				"browser": "managed",
+				"simplify": true
+			}
 		}
 	],
 	"connections": {
@@ -491,7 +517,7 @@
 			"main": [
 				[
 					{
-						"node": "Places",
+						"node": "Forum categories",
 						"type": "main",
 						"index": 0
 					}
@@ -643,6 +669,17 @@
 				[
 					{
 						"node": "Forum page",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Forum categories": {
+			"main": [
+				[
+					{
+						"node": "Places",
 						"type": "main",
 						"index": 0
 					}
