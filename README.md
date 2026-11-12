@@ -160,6 +160,9 @@ Import a workflow from [examples](https://github.com/reduck-ai/n8n-nodes-reduck/
 - [Doctolib booking](https://github.com/reduck-ai/n8n-nodes-reduck/blob/main/examples/doctolib-book-appointment.json):
 check your doctors' free slots every hour, then book the earliest one in your dates and email
 you.
+- [Discord channel alerts](https://github.com/reduck-ai/n8n-nodes-reduck/blob/main/examples/discord-channel-alerts.json):
+  read the Discord channels you are in every 15 minutes, then email you their new messages from
+  your Gmail.
 - [Alert to automatic purchase](https://github.com/reduck-ai/n8n-nodes-reduck/blob/main/examples/alert-to-purchase.json):
   receive a back-in-stock alert on a webhook, check the price and the stock, then order it once
   under your limits, or tell you when it needs you.
