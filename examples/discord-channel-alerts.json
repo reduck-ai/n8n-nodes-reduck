@@ -1,0 +1,604 @@
+{
+	"name": "Discord channel alerts by email (Reduck)",
+	"nodes": [
+		{
+			"parameters": {
+				"content": "## Discord channel alerts by email\n\n### How it works\nThis workflow is for members of Discord servers who must not miss a message, for example the trade calls of a signal channel. Every 15 minutes, it reads the channels you list, one after another, in your own Chrome. It keeps only the messages that came since the last check, and sends you one email from your Gmail with them: author, time, text, attachment and embed links, and a link to each message. A check with no new message sends nothing.\n\nThe first run sends no email. It only records the last message of each channel. The emails start with the next new messages.\n\nEach run opens Discord and Gmail in your Chrome. Discord lets one tab of an account at a time: a check fails when Discord is open in another tab, and the next one reads the messages it missed.\n\n### Setup\n- Install the community node `@reduck-ai/n8n-nodes-reduck` (self-hosted n8n only): https://docs.reduck.ai/n8n/#quick-start\n- Make a Reduck account, and select an API key from https://reduck.ai/api-keys in one Reduck node.\n- Install the Reduck extension in Chrome, sign in to Discord and Gmail there, and keep Chrome open.\n- In **Config**, set:\n  - `channels`: one channel per line, as `Label | channel URL`, e.g. `Calls | https://discord.com/channels/123/456`. Copy the URL from the channel in Discord on the web.\n  - `email_to`: where the alerts go, e.g. `you@example.com`.\n  - `gmail_account`: the Gmail address that sends them, when Chrome has several.\n- Publish the workflow.\n\n### Customization\nChange the schedule, or raise `messages_per_read` for a busy channel.",
+				"width": 480,
+				"height": 900
+			},
+			"id": "5d15c0d0-0000-4000-8000-000000000001",
+			"name": "About",
+			"type": "n8n-nodes-base.stickyNote",
+			"typeVersion": 1,
+			"position": [
+				-520,
+				-340
+			]
+		},
+		{
+			"parameters": {
+				"content": "## Read the setup\nThe channels to read, and the last message already sent for each one.",
+				"width": 1000,
+				"height": 340,
+				"color": 7
+			},
+			"id": "5d15c0d0-0000-4000-8000-000000000002",
+			"name": "Section setup",
+			"type": "n8n-nodes-base.stickyNote",
+			"typeVersion": 1,
+			"position": [
+				-20,
+				-160
+			]
+		},
+		{
+			"parameters": {
+				"content": "## Read each channel\nOne channel at a time: Discord lets one tab of an account at a time.",
+				"width": 460,
+				"height": 500,
+				"color": 7
+			},
+			"id": "5d15c0d0-0000-4000-8000-000000000003",
+			"name": "Section read",
+			"type": "n8n-nodes-base.stickyNote",
+			"typeVersion": 1,
+			"position": [
+				1020,
+				-160
+			]
+		},
+		{
+			"parameters": {
+				"content": "## Email the new messages\nOnly the messages after the last one recorded. No new message: no email.",
+				"width": 700,
+				"height": 460,
+				"color": 7
+			},
+			"id": "5d15c0d0-0000-4000-8000-000000000004",
+			"name": "Section new",
+			"type": "n8n-nodes-base.stickyNote",
+			"typeVersion": 1,
+			"position": [
+				-20,
+				400
+			]
+		},
+		{
+			"parameters": {
+				"content": "## Record the last message\nAfter the email, so a failed email is sent again by the next run.",
+				"width": 460,
+				"height": 340,
+				"color": 7
+			},
+			"id": "5d15c0d0-0000-4000-8000-000000000005",
+			"name": "Section save",
+			"type": "n8n-nodes-base.stickyNote",
+			"typeVersion": 1,
+			"position": [
+				720,
+				400
+			]
+		},
+		{
+			"parameters": {
+				"rule": {
+					"interval": [
+						{
+							"field": "minutes",
+							"minutesInterval": 15
+						}
+					]
+				}
+			},
+			"id": "5d15c0d0-0000-4000-8000-000000000006",
+			"name": "Every 15 minutes",
+			"type": "n8n-nodes-base.scheduleTrigger",
+			"typeVersion": 1.2,
+			"position": [
+				40,
+				0
+			]
+		},
+		{
+			"parameters": {
+				"mode": "manual",
+				"assignments": {
+					"assignments": [
+						{
+							"id": "channels",
+							"name": "channels",
+							"type": "string",
+							"value": "<label> | https://discord.com/channels/<server id>/<channel id>"
+						},
+						{
+							"id": "email_to",
+							"name": "email_to",
+							"type": "string",
+							"value": ""
+						},
+						{
+							"id": "gmail_account",
+							"name": "gmail_account",
+							"type": "string",
+							"value": ""
+						},
+						{
+							"id": "messages_per_read",
+							"name": "messages_per_read",
+							"type": "number",
+							"value": 25
+						}
+					]
+				},
+				"options": {}
+			},
+			"id": "5d15c0d0-0000-4000-8000-000000000007",
+			"name": "Config",
+			"type": "n8n-nodes-base.set",
+			"typeVersion": 3.4,
+			"position": [
+				240,
+				0
+			]
+		},
+		{
+			"parameters": {
+				"jsCode": "// One item per channel of Config. Fails before any Discord read when Config is not filled in.\nconst cfg = $('Config').first().json;\nconst URL_RE = /^https:\\/\\/discord\\.com\\/channels\\/(\\d+|@me)\\/(\\d+)\\/?$/;\nif (!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(String(cfg.email_to ?? '').trim()))\n  throw new Error('Config: set email_to to the address that gets the alerts.');\nif (!(Number(cfg.messages_per_read) >= 1)) throw new Error('Config: set messages_per_read to 1 or more.');\nconst channels = String(cfg.channels ?? '').split('\\n').map((line) => line.trim()).filter(Boolean).map((line) => {\n  const [label, url] = line.includes('|') ? line.split('|').map((s) => s.trim()) : ['', line];\n  const m = url.match(URL_RE);\n  if (!m) throw new Error(`Config: \"${line}\" is not \"Label | https://discord.com/channels/<server id>/<channel id>\".`);\n  return { label: label || `Channel ${m[2]}`, url: `https://discord.com/channels/${m[1]}/${m[2]}`, channel: m[2] };\n});\nif (!channels.length) throw new Error('Config: set channels, one per line.');\nreturn channels.map((json) => ({ json }));"
+			},
+			"id": "5d15c0d0-0000-4000-8000-000000000008",
+			"name": "Check Config",
+			"type": "n8n-nodes-base.code",
+			"typeVersion": 2,
+			"position": [
+				440,
+				0
+			]
+		},
+		{
+			"parameters": {
+				"resource": "table",
+				"operation": "create",
+				"tableName": "discord_channel_alerts",
+				"columns": {
+					"column": [
+						{
+							"name": "channel",
+							"type": "string"
+						},
+						{
+							"name": "last_message_id",
+							"type": "string"
+						}
+					]
+				},
+				"options": {
+					"createIfNotExists": true
+				}
+			},
+			"id": "5d15c0d0-0000-4000-8000-000000000009",
+			"name": "Create the table if missing",
+			"type": "n8n-nodes-base.dataTable",
+			"typeVersion": 1.1,
+			"position": [
+				640,
+				0
+			],
+			"executeOnce": true
+		},
+		{
+			"parameters": {
+				"resource": "row",
+				"operation": "get",
+				"dataTableId": {
+					"__rl": true,
+					"mode": "name",
+					"value": "discord_channel_alerts"
+				},
+				"returnAll": true
+			},
+			"id": "5d15c0d0-0000-4000-8000-00000000000a",
+			"name": "Read the last messages sent",
+			"type": "n8n-nodes-base.dataTable",
+			"typeVersion": 1.1,
+			"position": [
+				840,
+				0
+			],
+			"alwaysOutputData": true,
+			"executeOnce": true
+		},
+		{
+			"parameters": {
+				"jsCode": "// The channels of Check Config, again: the two Data Table steps replaced the items.\nreturn $('Check Config').all().map(({ json }) => ({ json }));"
+			},
+			"id": "5d15c0d0-0000-4000-8000-00000000000b",
+			"name": "List the channels",
+			"type": "n8n-nodes-base.code",
+			"typeVersion": 2,
+			"position": [
+				1080,
+				0
+			]
+		},
+		{
+			"parameters": {
+				"options": {}
+			},
+			"id": "5d15c0d0-0000-4000-8000-00000000000c",
+			"name": "One channel at a time",
+			"type": "n8n-nodes-base.splitInBatches",
+			"typeVersion": 3,
+			"position": [
+				1280,
+				0
+			]
+		},
+		{
+			"parameters": {
+				"script": {
+					"__rl": true,
+					"mode": "address",
+					"value": "reduck/discord.com/read_messages"
+				},
+				"args": {
+					"mappingMode": "defineBelow",
+					"value": {
+						"channelUrl": "={{ $json.url }}",
+						"limit": "={{ $('Config').first().json.messages_per_read }}"
+					},
+					"matchingColumns": [],
+					"schema": [
+						{
+							"id": "channelUrl",
+							"displayName": "channelUrl",
+							"required": false,
+							"defaultMatch": false,
+							"display": true,
+							"type": "string",
+							"canBeUsedToMatch": false
+						},
+						{
+							"id": "limit",
+							"displayName": "limit",
+							"required": false,
+							"defaultMatch": false,
+							"display": true,
+							"type": "number",
+							"canBeUsedToMatch": false
+						}
+					]
+				},
+				"browser": "extension",
+				"deviceId": "extension",
+				"simplify": true
+			},
+			"id": "5d15c0d0-0000-4000-8000-00000000000d",
+			"name": "Read the channel",
+			"type": "@reduck-ai/n8n-nodes-reduck.reduck",
+			"typeVersion": 1,
+			"position": [
+				1280,
+				180
+			],
+			"credentials": {},
+			"notes": "Your paired Chrome: Discord needs your signed-in account.",
+			"notesInFlow": true
+		},
+		{
+			"parameters": {
+				"jsCode": "// The messages after the last one recorded for each channel, as one email. A channel seen for the\n// first time sends nothing: its newest message is only recorded. Nothing new anywhere: the run ends.\nconst cfg = $('Config').first().json;\nconst channels = $('Check Config').all().map(({ json }) => json);\nconst last = new Map($('Read the last messages sent').all().filter(({ json }) => json.channel)\n  .map(({ json }) => [String(json.channel), String(json.last_message_id)]));\nconst after = (a, b) => BigInt(a) > BigInt(b);\nconst sections = [];\nconst positions = [];\nlet count = 0;\nfor (const { json: { result } } of $input.all()) {\n  const ch = channels.find((c) => c.channel === String(result.channelId));\n  if (!ch || !result.messages.length) continue;\n  const newest = result.messages[0].messageId;\n  const seen = last.get(ch.channel);\n  if (seen && !after(newest, seen)) continue;\n  positions.push({ channel: ch.channel, last_message_id: newest });\n  if (!seen) continue;\n  const fresh = result.messages.filter((m) => after(m.messageId, seen)).reverse();\n  count += fresh.length;\n  const lines = [`== ${ch.label} (${ch.url}) ==`];\n  if (fresh.length === result.messages.length && !result.complete)\n    lines.push(`More than ${cfg.messages_per_read} messages came since the last check: open the channel to read the others.`);\n  for (const m of fresh) {\n    const who = m.authorDisplayName && m.authorDisplayName !== m.author ? `${m.authorDisplayName} (${m.author})` : m.author ?? 'Unknown';\n    lines.push('', `${m.timestamp.slice(0, 16).replace('T', ' ')} UTC - ${who}`);\n    if (m.replyTo?.author) lines.push(`Reply to ${m.replyTo.author}: ${String(m.replyTo.content ?? '').slice(0, 120)}`);\n    if (m.content) lines.push(m.content);\n    for (const a of m.attachments ?? []) lines.push(`Attachment: ${a.filename} ${a.url}`);\n    for (const e of m.embeds ?? []) lines.push(`Embed: ${[e.title, e.url].filter(Boolean).join(' ')}`);\n    lines.push(`Link: ${ch.url}/${m.messageId}`);\n  }\n  sections.push({ label: ch.label, text: lines.join('\\n') });\n}\nif (!positions.length) return [];\nconst email = count\n  ? {\n      subject: `Discord: ${count} new message${count > 1 ? 's' : ''} in ${sections.map((s) => s.label).join(', ')}`,\n      body: sections.map((s) => s.text).join('\\n\\n') + '\\n\\nAttachment links expire after about a day.',\n    }\n  : null;\nreturn [{ json: { email, positions } }];"
+			},
+			"id": "5d15c0d0-0000-4000-8000-00000000000e",
+			"name": "Keep the new messages",
+			"type": "n8n-nodes-base.code",
+			"typeVersion": 2,
+			"position": [
+				40,
+				600
+			]
+		},
+		{
+			"parameters": {
+				"conditions": {
+					"options": {
+						"caseSensitive": true,
+						"leftValue": "",
+						"typeValidation": "strict",
+						"version": 2
+					},
+					"combinator": "and",
+					"conditions": [
+						{
+							"id": "email",
+							"leftValue": "={{ Boolean($json.email) }}",
+							"rightValue": "",
+							"operator": {
+								"type": "boolean",
+								"operation": "true",
+								"singleValue": true
+							}
+						}
+					]
+				},
+				"options": {}
+			},
+			"id": "5d15c0d0-0000-4000-8000-00000000000f",
+			"name": "New messages?",
+			"type": "n8n-nodes-base.if",
+			"typeVersion": 2,
+			"position": [
+				240,
+				600
+			]
+		},
+		{
+			"parameters": {
+				"script": {
+					"__rl": true,
+					"mode": "address",
+					"value": "reduck/mail.google.com/send_email"
+				},
+				"args": {
+					"mappingMode": "defineBelow",
+					"value": {
+						"to": "={{ $('Config').first().json.email_to }}",
+						"subject": "={{ $json.email.subject }}",
+						"body": "={{ $json.email.body }}",
+						"account": "={{ $('Config').first().json.gmail_account }}"
+					},
+					"matchingColumns": [],
+					"schema": [
+						{
+							"id": "to",
+							"displayName": "to",
+							"required": true,
+							"defaultMatch": false,
+							"display": true,
+							"type": "string",
+							"canBeUsedToMatch": false
+						},
+						{
+							"id": "subject",
+							"displayName": "subject",
+							"required": true,
+							"defaultMatch": false,
+							"display": true,
+							"type": "string",
+							"canBeUsedToMatch": false
+						},
+						{
+							"id": "body",
+							"displayName": "body",
+							"required": false,
+							"defaultMatch": false,
+							"display": true,
+							"type": "string",
+							"canBeUsedToMatch": false
+						},
+						{
+							"id": "account",
+							"displayName": "account",
+							"required": false,
+							"defaultMatch": false,
+							"display": true,
+							"type": "string",
+							"canBeUsedToMatch": false
+						}
+					]
+				},
+				"browser": "extension",
+				"deviceId": "extension",
+				"simplify": true
+			},
+			"id": "5d15c0d0-0000-4000-8000-000000000010",
+			"name": "Send the email",
+			"type": "@reduck-ai/n8n-nodes-reduck.reduck",
+			"typeVersion": 1,
+			"position": [
+				460,
+				500
+			],
+			"credentials": {},
+			"notes": "Your paired Chrome: it sends from your signed-in Gmail.",
+			"notesInFlow": true
+		},
+		{
+			"parameters": {
+				"jsCode": "// One row per channel that moved, from Keep the new messages.\nreturn $('Keep the new messages').first().json.positions.map((json) => ({ json }));"
+			},
+			"id": "5d15c0d0-0000-4000-8000-000000000011",
+			"name": "List the last messages",
+			"type": "n8n-nodes-base.code",
+			"typeVersion": 2,
+			"position": [
+				780,
+				600
+			]
+		},
+		{
+			"parameters": {
+				"resource": "row",
+				"operation": "upsert",
+				"dataTableId": {
+					"__rl": true,
+					"mode": "name",
+					"value": "discord_channel_alerts"
+				},
+				"filters": {
+					"conditions": [
+						{
+							"keyName": "channel",
+							"condition": "eq",
+							"keyValue": "={{ $json.channel }}"
+						}
+					]
+				},
+				"columns": {
+					"mappingMode": "autoMapInputData",
+					"value": null
+				},
+				"options": {}
+			},
+			"id": "5d15c0d0-0000-4000-8000-000000000012",
+			"name": "Record the last message",
+			"type": "n8n-nodes-base.dataTable",
+			"typeVersion": 1.1,
+			"position": [
+				1000,
+				600
+			]
+		}
+	],
+	"connections": {
+		"Every 15 minutes": {
+			"main": [
+				[
+					{
+						"node": "Config",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Config": {
+			"main": [
+				[
+					{
+						"node": "Check Config",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Check Config": {
+			"main": [
+				[
+					{
+						"node": "Create the table if missing",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Create the table if missing": {
+			"main": [
+				[
+					{
+						"node": "Read the last messages sent",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Read the last messages sent": {
+			"main": [
+				[
+					{
+						"node": "List the channels",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"List the channels": {
+			"main": [
+				[
+					{
+						"node": "One channel at a time",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"One channel at a time": {
+			"main": [
+				[
+					{
+						"node": "Keep the new messages",
+						"type": "main",
+						"index": 0
+					}
+				],
+				[
+					{
+						"node": "Read the channel",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Read the channel": {
+			"main": [
+				[
+					{
+						"node": "One channel at a time",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Keep the new messages": {
+			"main": [
+				[
+					{
+						"node": "New messages?",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"New messages?": {
+			"main": [
+				[
+					{
+						"node": "Send the email",
+						"type": "main",
+						"index": 0
+					}
+				],
+				[
+					{
+						"node": "List the last messages",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"Send the email": {
+			"main": [
+				[
+					{
+						"node": "List the last messages",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		},
+		"List the last messages": {
+			"main": [
+				[
+					{
+						"node": "Record the last message",
+						"type": "main",
+						"index": 0
+					}
+				]
+			]
+		}
+	},
+	"settings": {
+		"executionOrder": "v1"
+	}
+}
