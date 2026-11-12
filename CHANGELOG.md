@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
+#### [0.2.39](https://github.com/reduck-ai/n8n-nodes-reduck/compare/0.2.38...0.2.39)
+
+- feat: an example that emails the new messages of Discord channels from your Gmail [`d540705`](https://github.com/reduck-ai/n8n-nodes-reduck/commit/d54070596c14f9b992f5029cc5dae601ef2bcc65)
+
 #### [0.2.38](https://github.com/reduck-ai/n8n-nodes-reduck/compare/0.2.37...0.2.38)
+
+> 11 November 2026
 
 - feat: a failed run of a read-only script starts again, up to 3 times [`989d973`](https://github.com/reduck-ai/n8n-nodes-reduck/commit/989d9736dde1e8ce728ca4de5afa240af6d735ad)
 
