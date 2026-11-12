@@ -259,25 +259,30 @@ export class Reduck implements INodeType {
 		for (const group of groups.values()) {
 			for (let at = 0; at < group.length; at += BATCH) {
 				const slice = group.slice(at, at + BATCH);
-				let runs: Run[] = [];
-				try {
-					runs = await runBatch(this, slice);
-					// A failed run of a script that only reads starts again: the site often refused that
-					// browser (a captcha, a block), and a new one comes from another address.
-					const { retries = RETRIES } = this.getNodeParameter('options', slice[0].i, {}) as { retries?: number };
-					for (let left = retries; left > 0; left--) {
-						const again = slice.filter((item, j) => item.readOnly && 'error' in (runs[j].result ?? {}));
-						if (!again.length) break;
-						const retried = await runBatch(this, again);
-						again.forEach((item, k) => (runs[slice.indexOf(item)] = retried[k]));
-					}
-				} catch (error) {
-					slice.forEach(({ i }) => fail(error, i));
+				const runs = await runBatch(this, slice);
+				// A failed run of a script that only reads starts again: the site often refused that
+				// browser (a captcha, a block), and a new one comes from another address.
+				const { retries = RETRIES } = this.getNodeParameter('options', slice[0].i, {}) as { retries?: number };
+				for (let left = retries; left > 0; left--) {
+					const again = slice.filter((item, j) => {
+						const run = runs[j];
+						return item.readOnly && (run instanceof Error || 'error' in (run.result ?? {}));
+					});
+					if (!again.length) break;
+					const retried = await runBatch(this, again);
+					again.forEach((item, k) => (runs[slice.indexOf(item)] = retried[k]));
 				}
 				for (const [j, run] of runs.entries()) {
 					const { i } = slice[j];
 					try {
+						if (run instanceof Error) throw run;
 						const runUrl = `${await reduckUrl(this)}/runs/${run.id}`;
+						if (run.finished_at === null) {
+							throw new NodeOperationError(this.getNode(), `The run did not end in ${MAX_WAIT_MINUTES} minutes`, {
+								itemIndex: i,
+								description: `Its state on Reduck: ${runUrl}`,
+							});
+						}
 						if (run.result && 'error' in run.result) {
 							// The message says what happened; the description, what to do about it.
 							throw new NodeOperationError(this.getNode(), run.result.error, {
@@ -299,10 +304,11 @@ export class Reduck implements INodeType {
 	}
 }
 
-// Starts the runs and reads them again until they end, or until MAX_WAIT_MINUTES. The run request
-// holds for the API's default wait, under the 60 s after which VPNs and proxies drop a connection
-// that carries no byte.
-async function runBatch(ctx: IExecuteFunctions, items: ItemRun[]): Promise<Run[]> {
+// Starts the runs and reads them again until they end, or until MAX_WAIT_MINUTES. Each item gets its
+// run, or the error of the request that was to start it: a failure is never the batch's. The run
+// request holds for the API's default wait, under the 60 s after which VPNs and proxies drop a
+// connection that carries no byte.
+async function runBatch(ctx: IExecuteFunctions, items: ItemRun[]): Promise<Array<Run | Error>> {
 	let batch: { batch_id: string; runs: Run[] };
 	try {
 		batch = await reduckRequest<{ batch_id: string; runs: Run[] }>(ctx, 'POST', '/api/runs', {
@@ -314,33 +320,25 @@ async function runBatch(ctx: IExecuteFunctions, items: ItemRun[]): Promise<Run[]
 		// The sentence is checked too, as the API also answers 409 for other refusals (an archived
 		// script).
 		const apiError = error instanceof NodeApiError ? error : new NodeApiError(ctx.getNode(), error as JsonObject);
-		if (
-			'browser' in items[0].target &&
-			apiError.httpCode === '409' &&
-			apiError.message.startsWith('Multiple ')
-		) {
-			throw new NodeOperationError(ctx.getNode(), apiError.message, {
-				description: 'Choose your browser by name in Device.',
-			});
-		}
-		throw apiError;
+		const failure =
+			'browser' in items[0].target && apiError.httpCode === '409' && apiError.message.startsWith('Multiple ')
+				? new NodeOperationError(ctx.getNode(), apiError.message, { description: 'Choose your browser by name in Device.' })
+				: apiError;
+		return items.map(() => failure);
 	}
 	let { runs } = batch;
 	const deadline = Date.now() + MAX_WAIT_MINUTES * 60_000;
-	while (runs.some((run) => run.finished_at === null)) {
-		if (Date.now() > deadline) {
-			throw new NodeOperationError(ctx.getNode(), `The runs did not end in ${MAX_WAIT_MINUTES} minutes`, {
-				description: `Their state on Reduck: ${await reduckUrl(ctx)}/runs`,
-			});
-		}
+	while (runs.some((run) => run.finished_at === null) && Date.now() < deadline) {
 		await sleep(POLL_MS);
-		({ data: runs } = await reduckRequest<{ data: Run[] }>(ctx, 'GET', '/api/runs', {
+		// A read that fails is made again at the next one: the runs go on, on Reduck.
+		runs = await reduckRequest<{ data: Run[] }>(ctx, 'GET', '/api/runs', {
 			qs: { batch_id: batch.batch_id, page_size: BATCH },
-		}));
+		}).then(({ data }) => data, () => runs);
 	}
 	// An item finds its run by position.
 	if (runs.length !== items.length) {
-		throw new NodeOperationError(ctx.getNode(), `Asked for ${items.length} runs, and Reduck answered for ${runs.length}`);
+		const failure = new NodeOperationError(ctx.getNode(), `Asked for ${items.length} runs, and Reduck answered for ${runs.length}`);
+		return items.map(() => failure);
 	}
 	return runs;
 }
