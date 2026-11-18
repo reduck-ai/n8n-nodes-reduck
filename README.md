@@ -28,8 +28,8 @@ With Reduck you can:
 - ... or create your own workflow on top of any site without API!
 
 You can run scripts from the [Reduck library](https://reduck.ai/explore), or scripts that your
-agent creates with Reduck MCP for custom integrations (see
-[Build your own integrations](https://docs.reduck.ai/#build-your-own-integrations)).
+agent creates with Reduck MCP for any other site (see
+[Build your own scripts](https://docs.reduck.ai/#build-your-own-scripts)).
 
 A script runs in a browser. You choose which one in the node's **Browser** field:
 
