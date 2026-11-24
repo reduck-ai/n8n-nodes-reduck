@@ -6,6 +6,7 @@ import {
 	type ILoadOptionsFunctions,
 	type JsonObject,
 } from 'n8n-workflow';
+import type { GetMeResponse } from '@reduck-ai/sdk';
 
 type Ctx = IExecuteFunctions | ILoadOptionsFunctions;
 
@@ -63,7 +64,7 @@ export async function parseScriptAddress(
 		if (!handle && !ownHandles.has(ctx))
 			ownHandles.set(
 				ctx,
-				reduckRequest<{ handle: string | null }>(ctx, 'GET', '/api/me').then((me) => me.handle ?? ''),
+				reduckRequest<GetMeResponse>(ctx, 'GET', '/api/me').then((me) => me.handle ?? ''),
 			);
 		parts.unshift(handle || ((await ownHandles.get(ctx)) ?? ''));
 	}
@@ -75,16 +76,7 @@ export async function parseScriptAddress(
 export const scriptPath = ({ handle, host, slug }: { handle: string; host: string; slug: string }) =>
 	`/api/scripts/${[handle, host, slug].map(encodeURIComponent).join('/')}`;
 
-// The parts of a run this package reads (GET /api/runs/{run_id} answers more).
-export interface Run {
-	id: string;
-	status: 'queued' | 'running' | 'success' | 'error' | 'cancelled';
-	result: { result: unknown } | { error: string } | null;
-	started_at: string;
-	finished_at: string | null;
-	/** What the user can do about a failure, when Reduck knows. */
-	external_message: string | null;
-	/** Null when the script was deleted. */
-	script: { handle: string; host: string; slug: string } | null;
-	[key: string]: unknown;
-}
+// The types of the API's answers are those of @reduck-ai/sdk, a type-only devDependency: the
+// package ships with no runtime dependency, as n8n's verified nodes must, and a change of the
+// API's contract fails its build.
+export type { Run } from '@reduck-ai/sdk';

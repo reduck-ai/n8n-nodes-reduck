@@ -8,18 +8,12 @@ import {
 	type ResourceMapperFields,
 } from 'n8n-workflow';
 
+import type { GetMeResponse, GetScriptResponse, ListDevicesResponse, ListScriptsResponse } from '@reduck-ai/sdk';
 import { parseScriptAddress, reduckRequest, reduckUrl, scriptPath } from './transport';
 
 // A file input's field is keyed apart from the arguments: its value names a binary property of
 // the input item, which the node sends as the file's bytes.
 export const FILE_FIELD = 'file:';
-
-interface ScriptSummary {
-	name: string;
-	host: string;
-	slug: string;
-	author: { handle: string };
-}
 
 interface JsonSchemaProperty {
 	type?: string | string[];
@@ -28,13 +22,10 @@ interface JsonSchemaProperty {
 	description?: string;
 }
 
-export interface Script {
-	current_version: {
-		input_schema: { properties?: Record<string, JsonSchemaProperty>; required?: string[] };
-		logged_in?: boolean;
-		side_effects?: 'none' | 'undetermined' | 'write';
-	} | null;
-}
+export type Script = GetScriptResponse;
+
+// The API holds a script's input schema as any JSON Schema object; the form reads these parts of it.
+type InputSchema = { properties?: Record<string, JsonSchemaProperty>; required?: string[] };
 
 const PAGE_SIZE = 50;
 
@@ -53,7 +44,7 @@ export async function searchScripts(
 	const origin = await reduckUrl(this);
 	const handle = this.getCurrentNodeParameter('handle');
 	const path = typeof handle === 'string' && handle ? `/api/scripts/${encodeURIComponent(handle)}` : '/api/scripts';
-	const answer = await reduckRequest<{ data: ScriptSummary[]; has_next_page: boolean }>(this, 'GET', path, {
+	const answer = await reduckRequest<ListScriptsResponse>(this, 'GET', path, {
 		qs: { page, page_size: PAGE_SIZE, archived: 'false', ...(filter ? { q: filter } : {}) },
 	});
 	return {
@@ -110,7 +101,7 @@ export async function getScriptArgs(this: ILoadOptionsFunctions): Promise<Resour
 			emptyFieldsNotice: `No script at "${script.handle}/${script.host}/${script.slug}" for this account. Pick one from the list, or check the address.`,
 		};
 	}
-	const schema = answer.current_version?.input_schema ?? {};
+	const schema: InputSchema = answer.current_version?.input_schema ?? {};
 	const required = new Set(schema.required ?? []);
 
 	const fields: ResourceMapperField[] = Object.entries(schema.properties ?? {}).map(([name, property]) => {
@@ -134,7 +125,7 @@ export async function getScriptArgs(this: ILoadOptionsFunctions): Promise<Resour
 // The owners a script can come from, as the MCP's `handle`: none for all of them, the official
 // catalogue, the account, and its projects.
 export async function getHandles(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-	const me = await reduckRequest<{ handle: string | null; projects: Array<{ handle: string; name: string }> }>(
+	const me = await reduckRequest<GetMeResponse>(
 		this,
 		'GET',
 		'/api/me',
@@ -159,7 +150,7 @@ export const PAIRED_BROWSER = 'extension';
 
 // The paired browsers a run can use: the API's own pick, or one of them by name.
 export async function getDevices(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-	const devices = await reduckRequest<Array<{ id: string; name: string | null }>>(this, 'GET', '/api/devices');
+	const devices = await reduckRequest<ListDevicesResponse>(this, 'GET', '/api/devices');
 	return [
 		{
 			name: 'Default',

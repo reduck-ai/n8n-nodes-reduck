@@ -1,7 +1,8 @@
 # Releases this package on every push to main that changes what it ships: bumps the patch
 # version, updates CHANGELOG.md, commits "Release x.y.z", tags it, creates the GitHub release and
-# publishes to npm with provenance. For a minor or a major version, run it by hand instead
-# (Actions > Publish > Run workflow) and choose the increment.
+# stages it on npm with provenance, where a maintainer approves it (npmjs.com, or `npm stage
+# approve`, with 2FA) before anyone can install it. For a minor or a major version, run it by hand
+# instead (Actions > Publish > Run workflow) and choose the increment.
 #
 # One job does it all: a commit or tag pushed with GITHUB_TOKEN starts no workflow, so a second
 # workflow on the tag would never run. For the same reason the release commit starts no new run.
@@ -61,6 +62,9 @@ jobs:
           node-version: 'lts/*'
           cache: 'npm'
 
+      # `npm stage` needs npm >= 11.15.0.
+      - run: npm install -g npm@11.15.0
+
       - name: Install dependencies
         run: 'npm ci'
 
@@ -84,16 +88,17 @@ jobs:
           INCREMENT: ${{ inputs.increment || 'patch' }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Publishes the version package.json holds unless npm has it already: nothing to do after a
-      # run that released nothing, and a run again after a failed publish only publishes.
-      - name: Publish to npm
+      # Stages the version package.json holds unless npm has it already: nothing to do after a run
+      # that released nothing, and a run again after a failed staging only stages.
+      - name: Stage on npm
         run: |
           version="$(node -p 'const p = require("./package.json"); p.name + "@" + p.version')"
           if [ -n "$(npm view "$version" version 2>/dev/null)" ]; then
             echo "$version is on npm already."
           else
             npm run build
-            npm publish --provenance
+            npm stage publish --provenance
+            echo "::notice::$version is staged on npm: a maintainer approves it before anyone can install it."
           fi
         env:
           # n8n-node's prepublishOnly refuses a publish without it.
